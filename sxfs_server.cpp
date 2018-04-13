@@ -6,10 +6,10 @@
 
 #include "sxfs.h"
 
-client_list *
+node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
-	static client_list  result;
+	static node_list  result;
 
 	/*
 	 * insert server code here
@@ -19,43 +19,7 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 }
 
 int *
-get_load_1_svc(char *arg1, int arg2,  struct svc_req *rqstp)
-{
-	static int  result;
-
-	/*
-	 * insert server code here
-	 */
-
-	return &result;
-}
-
-char **
-download_1_svc(char *arg1,  struct svc_req *rqstp)
-{
-	static char * result;
-
-	/*
-	 * insert server code here
-	 */
-
-	return &result;
-}
-
-files_in_client *
-update_list_1_svc(struct svc_req *rqstp)
-{
-	static files_in_client  result;
-
-	/*
-	 * insert server code here
-	 */
-
-	return &result;
-}
-
-int *
-join_client_1_svc(IP arg1, int arg2,  struct svc_req *rqstp)
+update_list_1_svc(IP arg1, int arg2, client_file_list arg3,  struct svc_req *rqstp)
 {
 	static int  result;
 

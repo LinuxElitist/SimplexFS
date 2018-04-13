@@ -4,69 +4,162 @@
  * as a guideline for developing your own functions.
  */
 
+#include <iostream>
+#include "peer_info.h"
 #include "sxfs.h"
+#include "string.h"
+#include "stdlib.h"
+#include <unistd.h>
+#include <string>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <thread>
 
+using namespace std;
 
-void
-simple_xfs_1(char *host)
-{
+//client_list buildClientList() {
+//	client_list res;
+//	res.client_list_val = new node[clientList.size()];
+//	res.client_list_len = clientList.size();
+//	int pos = 0;
+//	for (int i = 0; i < clientList.size(); i++) {
+//		node *p = res.client_list_val + pos;
+//		p->ip = new char[clientList[i].first.length() + 1];
+//		strcpy(p->ip, clientList[i].first.c_str());
+//		p->port = clientList[i].second;
+//		pos++;
+//	}
+//	return res;
+//}
+//
+//void outputClientList() {
+//	//output server list;
+//	cout << "outputing server list:" << endl;
+//    client_list clients = this->buildClientList();
+//	for (int i = 0; i < clients.client_list_len; i++) {
+//		cout << (clients.client_list_val + i)->ip << " " << (clients.client_list_val + i)->port << endl;
+//	}
+//	cout << endl;
+//}
+
+class Client;
+
+class Client {
+
+public:
 	CLIENT *clnt;
-	client_list  *result_1;
-	char *file_find_1_arg1;
-	int  *result_2;
-	char *get_load_1_arg1;
-	int get_load_1_arg2;
-	char * *result_3;
-	char *download_1_arg1;
-	files_in_client  *result_4;
-	int  *result_5;
-	IP join_client_1_arg1;
-	int join_client_1_arg2;
+	std::thread udp_thread;
+	int sock = -1;
+	char *self_ip;
+	int self_port;
+    client_file_list self_file_list;
 
-#ifndef	DEBUG
-	clnt = clnt_create (host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
-	if (clnt == NULL) {
-		clnt_pcreateerror (host);
-		exit (1);
-	}
-#endif	/* DEBUG */
+    void file_find(char *filename);
+    void get_load(IP ip, int port);
+    void download(IP ip, int port);
+    void update_list(IP ip, int port, client_file_list f_list);
 
-	result_1 = file_find_1(file_find_1_arg1, clnt);
-	if (result_1 == (client_list *) NULL) {
-		clnt_perror (clnt, "call failed");
+	Client(char *ip, char *host, int port) {
+		self_ip = ip;
+		self_port = port;
+		clnt = clnt_create(host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
+		if (clnt == NULL) {
+			clnt_pcreateerror(host);
+			exit(1);
+		}
+
+        update_list(self_ip, self_port, self_file_list);
+        std::cout << ".....Completed client creation.....\n";
+        //outputClientList();
+
+		struct sockaddr_in client_addr;
+		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+			perror("socket()");
+			exit(1);
+		}
+		int optval = 1;
+		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
+		memset(&client_addr, 0, sizeof(client_addr));
+		client_addr.sin_family = AF_INET;
+		client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+		client_addr.sin_port = htons(self_port);
+
+		if (bind(sock, (struct sockaddr *) &client_addr, sizeof(client_addr)) == -1) {
+			close(sock);
+			perror("binding socket");
+		}
+
+
 	}
-	result_2 = get_load_1(get_load_1_arg1, get_load_1_arg2, clnt);
-	if (result_2 == (int *) NULL) {
-		clnt_perror (clnt, "call failed");
+
+	~Client() {
+		if (udp_thread.joinable()) {
+			udp_thread.join();
+		}
+		if (clnt)
+			clnt_destroy(clnt);
+
 	}
-	result_3 = download_1(download_1_arg1, clnt);
-	if (result_3 == (char **) NULL) {
-		clnt_perror (clnt, "call failed");
+
+};
+
+void Client::file_find(char *filename) {
+	auto result_1 = file_find_1(filename, clnt);
+	if (result_1 == (node_list *) NULL) {
+		clnt_perror(clnt, "call failed");
 	}
-	result_4 = update_list_1(clnt);
-	if (result_4 == (files_in_client *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-	result_5 = join_client_1(join_client_1_arg1, join_client_1_arg2, clnt);
-	if (result_5 == (int *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-#ifndef	DEBUG
-	clnt_destroy (clnt);
-#endif	 /* DEBUG */
 }
 
+void Client::get_load(IP ip, int port) { //TODO: make it UDP
+
+
+    //if peer crashed
+    //TODO: remove client from file_specific_client_list and then call update_list
+}
+
+void Client::download(IP ip, int port) { //TODO: make it UDP
+    //TODO: implement latency in sending
+    //recv_from();
+    //calculate checksum of downloaded file
+    //compare with original file and output success if checksum matches
+    //if success, add itself to the file_specific_client_list and call update_list
+
+
+
+
+    //if peer crashed
+    //TODO: remove client from file_specific_client_list and then call update_list
+}
+
+//TODO: update list to be called if download returned success
+void Client::update_list(IP ip, int port, client_file_list f_list) {
+    auto result_4 = update_list_1(ip, port, f_list, clnt);
+    if (result_4 == (int *) NULL) {
+        clnt_perror(clnt, "call failed");
+    }
+}
+
+
+//TODO: UPDATE_LIST to be called whever joining too.... if already in list, overwrite else push back
+
+//TODO: scenario of a client leaving and then joining back cz we need checksum too
 
 int
 main (int argc, char *argv[])
 {
-	char *host;
+    if (argc < 4) {
+        std::cout << "Usage: ./clientside client_ip server_ip client_port\n";
+        exit(1);
+    }
+    char *client_ip = (char *) argv[1];
+    char *serv_ip = (char *) argv[2];
+    int self_port = stoi(argv[3]);
 
-	if (argc < 2) {
-		printf ("usage: %s server_host\n", argv[0]);
-		exit (1);
-	}
-	host = argv[1];
-	simple_xfs_1 (host);
-exit (0);
+    Client conn(client_ip, serv_ip, self_port);
+    char func[1];
+    int func_number;
+
+    exit (0);
 }

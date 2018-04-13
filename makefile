@@ -1,6 +1,6 @@
 CXX=g++
 CXXFLAGS=-std=c++0x -g -fpermissive
-LIBS= -lnsl  -lpthread
+LIBS= -lnsl  -lpthread -lcrypto
 RPCGEN_FILE= sxfs.x
 
 SVC=sxfs_svc.cpp

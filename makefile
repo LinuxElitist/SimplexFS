@@ -8,7 +8,7 @@ CLI=sxfs_clnt.cpp
 XDR=sxfs_xdr.cpp
 
 SVC_SRC= $(XDR) $(SVC) sxfs_server.cpp
-CLI_SRC=$(XDR) $(CLI) sxfs_client.cpp
+CLI_SRC=$(XDR) $(CLI) sxfs_client.cpp peer_info.cpp
 
 CLIENT=clientside
 SERVER=serverside

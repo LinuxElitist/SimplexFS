@@ -12,14 +12,18 @@
 #include <errno.h>
 #include <openssl/md5.h>
 #include <vector>
+#include <set>
+#include <map>
+#include <iostream>
+
 
 #define BUFFER_SIZE 1024
 
 using namespace std;
+
 void outputClientList();
 client_list buildClientList();
 
 void md5sum(const char * const filename, unsigned char *sum);
-
 
 #endif //SIMPLEXFS_PEER_INFO_H

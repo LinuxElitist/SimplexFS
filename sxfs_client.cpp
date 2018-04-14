@@ -4,8 +4,6 @@
  * as a guideline for developing your own functions.
  */
 
-#include <iostream>
-#include "peer_info.h"
 #include "sxfs.h"
 #include "string.h"
 #include "stdlib.h"
@@ -16,33 +14,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <thread>
+#include <iostream>
+
 
 using namespace std;
-
-//client_list buildClientList() {
-//	client_list res;
-//	res.client_list_val = new node[clientList.size()];
-//	res.client_list_len = clientList.size();
-//	int pos = 0;
-//	for (int i = 0; i < clientList.size(); i++) {
-//		node *p = res.client_list_val + pos;
-//		p->ip = new char[clientList[i].first.length() + 1];
-//		strcpy(p->ip, clientList[i].first.c_str());
-//		p->port = clientList[i].second;
-//		pos++;
-//	}
-//	return res;
-//}
-//
-//void outputClientList() {
-//	//output server list;
-//	cout << "outputing server list:" << endl;
-//    client_list clients = this->buildClientList();
-//	for (int i = 0; i < clients.client_list_len; i++) {
-//		cout << (clients.client_list_val + i)->ip << " " << (clients.client_list_val + i)->port << endl;
-//	}
-//	cout << endl;
-//}
 
 class Client;
 

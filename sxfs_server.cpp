@@ -5,6 +5,40 @@
  */
 
 #include "sxfs.h"
+#include "peer_info.h"
+
+using namespace std;
+
+vector<pair<pair<string,int>,client_file_list>> clientList;
+
+client_list buildClientList() {
+	client_list res;
+	res.client_list_val = new client_details[clientList.size()];
+	res.client_list_len = clientList.size();
+	int pos = 0;
+	for (int i = 0; i < clientList.size(); i++) {
+		client_details *c = res.client_list_val + pos;
+		c->client_node.ip = new char[clientList[i].first.first.length() + 1];
+		strcpy(c->client_node.ip, clientList[i].first.first.c_str());
+		c->client_node.port = clientList[i].first.second;
+		c->c_file_list = clientList[i].second;
+		pos++;
+	}
+	return res;
+}
+
+void outputClientList() {
+	//output server list;
+	cout << "outputing server list:" << endl;
+    client_list clients = buildClientList();
+	for (int i = 0; i < clients.client_list_len; i++) {
+		cout << (clients.client_list_val + i)->client_node.ip << " " << (clients.client_list_val + i)->client_node.port << " ";
+		for(int j = 0; j < clients.client_list_val->c_file_list.client_file_list_len; j++) {
+			cout << ((clients.client_list_val + i)->c_file_list.client_file_list_val + j) << endl;
+		}
+	}
+	cout << endl;
+}
 
 node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
@@ -22,10 +56,6 @@ int *
 update_list_1_svc(IP arg1, int arg2, client_file_list arg3,  struct svc_req *rqstp)
 {
 	static int  result;
-
-	/*
-	 * insert server code here
-	 */
-
+	clientList.push_back(make_pair(make_pair(arg1,arg2),arg3));
 	return &result;
 }

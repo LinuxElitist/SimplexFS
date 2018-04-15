@@ -34,7 +34,7 @@ void outputClientList() {
 	for (int i = 0; i < clients.client_list_len; i++) {
 		cout << (clients.client_list_val + i)->client_node.ip << " " << (clients.client_list_val + i)->client_node.port << " ";
 		for(int j = 0; j < clients.client_list_val->c_file_list.client_file_list_len; j++) {
-			cout << ((clients.client_list_val + i)->c_file_list.client_file_list_val + j) << endl;
+			cout << *((clients.client_list_val + i)->c_file_list.client_file_list_val + j) << endl;
 		}
 	}
 	cout << endl;
@@ -43,12 +43,19 @@ void outputClientList() {
 node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
-	static node_list  result;
-
-	/*
-	 * insert server code here
-	 */
-
+	static node_list result;
+	client_file_list f_list;
+	for (int i = 0; i < clientList.size(); i++) {
+		f_list = clientList[i].second;
+		for(int j = 0; j<f_list.client_file_list_len; j++){
+			if(strcmp((*(f_list.client_file_list_val+j)), arg1)==0){
+				result.node_list_len++;
+				strcpy(result.node_list_val->ip, clientList[i].first.first.c_str());
+				result.node_list_val->port = clientList[i].first.second;
+				break;
+			}
+		}
+	}
 	return &result;
 }
 

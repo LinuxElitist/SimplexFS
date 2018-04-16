@@ -20,6 +20,17 @@
 #define BUFFER_SIZE 1024
 
 using namespace std;
+struct PeerInfo {
+    std::string nodename;
+    std::string hostname;
+    int mp;
+    int cp;
+    std::unordered_map<std::string, int> latencies;
+      /* Methods */
+    PeerInfo();
+    PeerInfo(int num);
+};
+
 
 void outputClientList();
 client_list buildClientList();

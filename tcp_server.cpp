@@ -2,8 +2,8 @@
 // Created by sandeep on 3/23/18.
 //
 
-#include "tcpServer.h"
-#include "tcpCommunication.h"
+#include "tcp_server.h"
+#include "tcp_communication.h"
 #include <cstdio>
 #include <unistd.h>
 #include <string.h>
@@ -155,7 +155,7 @@ int Server::getNumConns() const
 }
 
 
-int main(int argc, char *argv[]){
+int test_tcp_server(int argc, char *argv[]){
   if (argc < 3) {
       std::cout << "Usage: ./serverside port max_connections \n";
       exit(1);

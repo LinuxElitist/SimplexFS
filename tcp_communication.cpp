@@ -2,7 +2,7 @@
 // Created by sandeep on 3/24/18.
 //
 
-#include "tcpCommunication.h"
+#include "tcp_communication.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

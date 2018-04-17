@@ -2,9 +2,9 @@
 // Created by sandeep on 3/23/18.
 //
 
-#include "tcpClient.h"
+#include "tcp_client.h"
 #include <iostream>
-#include "tcpCommunication.h"
+#include "tcp_communication.h"
 #include <cstdio>
 #include <unistd.h>
 #include <string.h>
@@ -59,7 +59,7 @@ int Client::clntClose()  {
     return 0;
 }
 
-int main(int argc, char *argv[]){
+int test_tcp_client(int argc, char *argv[]){
   if (argc < 4) {
       std::cout << "Usage: ./clientside server_ip client_port msg\n";
       exit(1);

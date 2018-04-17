@@ -35,6 +35,7 @@ public:
     void get_load(IP ip, int port);
     void download(IP ip, int port);
     void update_list(IP ip, int port, client_file_list f_list);
+	client_file_list populate_file_list();
 
 	Client(char *ip, char *host, int port) {
 		self_ip = ip;
@@ -45,28 +46,27 @@ public:
 			exit(1);
 		}
 
+		self_file_list = populate_file_list();
         update_list(self_ip, self_port, self_file_list);
         std::cout << ".....Completed client creation.....\n";
         //outputClientList();
 
-		struct sockaddr_in client_addr;
-		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-			perror("socket()");
-			exit(1);
-		}
-		int optval = 1;
-		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
-		memset(&client_addr, 0, sizeof(client_addr));
-		client_addr.sin_family = AF_INET;
-		client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		client_addr.sin_port = htons(self_port);
-
-		if (bind(sock, (struct sockaddr *) &client_addr, sizeof(client_addr)) == -1) {
-			close(sock);
-			perror("binding socket");
-		}
-
-
+//		struct sockaddr_in client_addr;
+//		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+//			perror("socket()");
+//			exit(1);
+//		}
+//		int optval = 1;
+//		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
+//		memset(&client_addr, 0, sizeof(client_addr));
+//		client_addr.sin_family = AF_INET;
+//		client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+//		client_addr.sin_port = htons(self_port);
+//
+//		if (bind(sock, (struct sockaddr *) &client_addr, sizeof(client_addr)) == -1) {
+//			close(sock);
+//			perror("binding socket");
+//		}
 	}
 
 	~Client() {
@@ -80,11 +80,30 @@ public:
 
 };
 
+client_file_list Client:: populate_file_list() {
+//TODO
+
+	client_file_list temp_list;
+	temp_list.client_file_list_len = 3;
+	temp_list.client_file_list_val = new FILENAME[3];
+	for(int j = 0; j<temp_list.client_file_list_len; j++){
+		FILENAME tmp = (FILENAME )"file1.txt";
+		temp_list.client_file_list_val[j] = tmp;
+	}
+	return temp_list;
+}
+
 void Client::file_find(char *filename) {
 	auto result_1 = file_find_1(filename, clnt);
 	if (result_1 == (node_list *) NULL) {
 		clnt_perror(clnt, "call failed");
 	}
+	cout << "Node_list for " << filename << " is:\n";
+	for (int i = 0; i < result_1->node_list_len; i++) {
+		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << " ";
+	}
+	cout << "\n";
+
 }
 
 void Client::get_load(IP ip, int port) { //TODO: make it UDP
@@ -133,8 +152,9 @@ main (int argc, char *argv[])
     int self_port = stoi(argv[3]);
 
     Client conn(client_ip, serv_ip, self_port);
-    char func[1];
-    int func_number;
 
+	char search_filename[MAXFILENAME];
+	strcpy(search_filename,"file1.txt");
+	conn.file_find(search_filename);
     exit (0);
 }

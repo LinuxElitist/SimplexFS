@@ -44,7 +44,11 @@ node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
 	static node_list result;
+	outputClientList();
+//	client_list c_list;
 	client_file_list f_list;
+//	f_list.client_file_list_len = clientList.size();
+//	f_list.client_file_list_val = new FILENAME[clientList.size()];
 	for (int i = 0; i < clientList.size(); i++) {
 		f_list = clientList[i].second;
 		for(int j = 0; j<f_list.client_file_list_len; j++){
@@ -56,11 +60,25 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 			}
 		}
 	}
+
+//
+//
+//	for(int j = 0; j<temp_list.client_file_list_len; j++){
+//		FILENAME tmp = (FILENAME )"file1.txt";
+//		temp_list.client_file_list_val[j] = tmp;
+//	}
+//
+//	for (int i = 0; i < result_1->node_list_len; i++) {
+//		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << " ";
+//	}
+//	cout << "\n";
+//
+
 	return &result;
 }
 
 int *
-update_list_1_svc(IP arg1, int arg2, client_file_list arg3,  struct svc_req *rqstp)
+update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp)
 {
 	static int  result;
 	clientList.push_back(make_pair(make_pair(arg1,arg2),arg3));

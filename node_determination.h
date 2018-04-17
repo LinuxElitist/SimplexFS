@@ -15,8 +15,8 @@ struct NodeDet
     /* Data */
     std::string nodename;
     std::string hostname;
-    int client_port;
-    int server_port;
+//    int client_port;
+//    int server_port;
     std::unordered_map<std::string, int> latencies;
 
     /* Methods */

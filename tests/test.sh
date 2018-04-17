@@ -1,11 +1,11 @@
-export FS_ROOT=~/5105_node_files
+export FS_ROOT=../5105_node_files
 
 # Individual node information
 # hostname,mp,cp
-export N0=some_hostname,0,1
-export N1=some_hostname,1,2
-export N2=some_hostname,2,3
-export N3=some_hostname,3,4
+export N0=serv_hostname
+export N1=clnt1_hostname
+export N2=clnt2_hostname
+export N3=clnt3_hostname
 
 # Latency relations.
 export REL0=N1,N2,234

@@ -1,7 +1,7 @@
 const MAXIP = 16;
-const MAXCLIENTS = 10;
+const MAXCLIENTS = 3;
 const MAXFILENAME = 256;
-const MAXFILES = 20;
+const MAXFILES = 30;
 
 typedef string IP<MAXIP>;
 typedef string FILENAME<MAXFILENAME>;

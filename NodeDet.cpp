@@ -1,69 +1,65 @@
 //
 // Created by sandeep on 4/16/18.
 //
-#include "NodeInfo.h"
-//#include "str_split.h"
+#include "NodeDet.h"
 #include <cstdlib>
 #include <vector>
 using std::vector;
 using std::string;
 using std::to_string;
 
-NodeDet::NodeDet() : nodename(""), hostname(""), mp(0), cp(0)
+NodeDet::NodeDet() : nodename(""), hostname(""), client_port(0), server_port(0)
 {
 }
 
 NodeDet::NodeDet(int num)
 {
-    char *n = NULL;
+    char *sh = NULL;
     int i = 0;
 
     nodename = "N" + to_string(num);
-    n = getenv(nodename.c_str());
+    sh = getenv(nodename.c_str());
 
-    if (!n)
+    if (!sh)
     {
         nodename = "";
         hostname = "";
-        mp = 0;
-        cp = 0;
+        client_port = 0;
+        server_port = 0;
         return;
     }
 
-    vector<string> node_info = str_split(n, ',');
+    vector<string> node_info = str_split(sh, ',');
 
     // Node info is host,mp,cp
     hostname = node_info[0];
-    mp = atoi(node_info[1].c_str());
-    cp = atoi(node_info[2].c_str());
+    client_port = atoi(node_info[1].c_str());
+    server_port = atoi(node_info[2].c_str());
 
     // Populate latency relationships
-    char rel_name[64];
-    snprintf(rel_name, 64, "REL%d", i);
-    n = getenv(rel_name);
+    char relainfo[64];
+    snprintf(relainfo, 64, "REL%d", i);
+    sh = getenv(relainfo);
 
-    while (n)
-    {
-        vector<string> rel_info = str_split(n, ',');
+    while (sh) {
+        vector<string> rel_info = str_split(sh, ',');
         string other;
         int lat;
 
-        if (rel_info[0] == nodename)
-        {
+        if (rel_info[0] == nodename) {
             other = rel_info[1];
             lat = atoi(rel_info[2].c_str());
             latencies[other] = lat;
         }
-        else if (rel_info[1] == nodename)
-        {
+        else if (rel_info[1] == nodename) {
             other = rel_info[0];
             lat = atoi(rel_info[2].c_str());
             latencies[other] = lat;
         }
 
         i++;
-        snprintf(rel_name, 64, "REL%d", i);
-        n = getenv(rel_name);
+        snprintf(relainfo, 64, "REL%d", i);
+        sh = getenv(relainfo);
     }
 }
 
@@ -89,3 +85,9 @@ std::vector<string> NodeDet::str_split(const std::string &str , char delimiter) 
     return strings;
 }
 
+int main() {
+
+    NodeDet *node = new NodeDet(1);
+
+
+}

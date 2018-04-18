@@ -9,71 +9,70 @@
 
 using namespace std;
 
-vector<pair<pair<string,int>,client_file_list>> clientList;
+//static vector<pair<pair<string,int>,client_file_list>> clientList;
+static map<node *,client_file_list *> clientList;
 
-client_list buildClientList() {
-	client_list res;
-	res.client_list_val = new client_details[clientList.size()];
-	res.client_list_len = clientList.size();
-	int pos = 0;
-	for (int i = 0; i < clientList.size(); i++) {
-		client_details *c = res.client_list_val + pos;
-		c->client_node.ip = new char[clientList[i].first.first.length() + 1];
-		strcpy(c->client_node.ip, clientList[i].first.first.c_str());
-		c->client_node.port = clientList[i].first.second;
-		c->c_file_list = clientList[i].second;
-		pos++;
-	}
-	return res;
-}
-
-void outputClientList() {
-	//output server list;
-	cout << "outputing server list:" << endl;
-    client_list clients = buildClientList();
-	for (int i = 0; i < clients.client_list_len; i++) {
-		cout << (clients.client_list_val + i)->client_node.ip << " " << (clients.client_list_val + i)->client_node.port << " ";
-		for(int j = 0; j < clients.client_list_val->c_file_list.client_file_list_len; j++) {
-			cout << *((clients.client_list_val + i)->c_file_list.client_file_list_val + j) << endl;
-		}
-	}
-	cout << endl;
-}
+//client_list buildClientList() {
+//	client_list res;
+//	res.client_list_val = new client_details[clientList.size()];
+//	res.client_list_len = clientList.size();
+//	int pos = 0;
+//	for (int i = 0; i < clientList.size(); i++) {
+//		client_details *c = res.client_list_val + pos;
+//		c->client_node.ip = new char[clientList[i].first.first.length() + 1];
+//		strcpy(c->client_node.ip, clientList[i].first.first.c_str());
+//		c->client_node.port = clientList[i].first.second;
+//		c->c_file_list = clientList[i].second;
+//		pos++;
+//	}
+//	return res;
+//}
+//
+//void outputClientList() {
+//	//output server list;
+//	cout << "outputing server list:" << endl;
+//    client_list clients = buildClientList();
+//	int pos = -1;
+//	std::string delimiter = ".txt";
+//	std::string name = "";
+//	for (int i = 0; i < clients.client_list_len; i++) {
+//		cout << (clients.client_list_val + i)->client_node.ip << " " << (clients.client_list_val + i)->client_node.port << " ";
+//		client_file_list  temp_list = (clients.client_list_val + i)->c_file_list;
+//		pos = -1;
+//		name = "";
+//		string remaining_list(temp_list, strlen(temp_list));
+//		do {
+//			pos = remaining_list.find(delimiter);
+//			name = remaining_list.substr(0, pos);   //returning line
+//			remaining_list = remaining_list.substr(pos + 1);  //returning rest of levels
+//			cout << name << " " << endl;
+//		} while(pos >= 0);
+//	}
+//	cout << endl;
+//}
 
 node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
 	static node_list result;
-	outputClientList();
-//	client_list c_list;
+	result.node_list_val = new node[MAXCLIENTS];
+	//outputClientList();
 	client_file_list f_list;
-//	f_list.client_file_list_len = clientList.size();
-//	f_list.client_file_list_val = new FILENAME[clientList.size()];
-	for (int i = 0; i < clientList.size(); i++) {
-		f_list = clientList[i].second;
-		for(int j = 0; j<f_list.client_file_list_len; j++){
-			if(strcmp((*(f_list.client_file_list_val+j)), arg1)==0){
-				result.node_list_len++;
-				strcpy(result.node_list_val->ip, clientList[i].first.first.c_str());
-				result.node_list_val->port = clientList[i].first.second;
-				break;
-			}
+	int pos = -1;
+	cout << "node list is: \n";
+	map<node *, client_file_list *>::iterator iter = clientList.begin();
+	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+		f_list = *(iter->second);
+		string remaining_list(f_list, strlen(f_list));
+		pos = remaining_list.find(arg1);
+		if(pos >= 0){
+			result.node_list_len++;
+			result.node_list_val->port = iter->first->port;
+			strcpy(result.node_list_val->ip, iter->first->ip);
+			cout << result.node_list_val->ip << ":" << result.node_list_val->port << "\n";
+			break;
 		}
 	}
-
-//
-//
-//	for(int j = 0; j<temp_list.client_file_list_len; j++){
-//		FILENAME tmp = (FILENAME )"file1.txt";
-//		temp_list.client_file_list_val[j] = tmp;
-//	}
-//
-//	for (int i = 0; i < result_1->node_list_len; i++) {
-//		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << " ";
-//	}
-//	cout << "\n";
-//
-
 	return &result;
 }
 
@@ -81,6 +80,11 @@ int *
 update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp)
 {
 	static int  result;
-	clientList.push_back(make_pair(make_pair(arg1,arg2),arg3));
+	node temp_node;
+	temp_node.ip = arg1;
+	temp_node.port = arg2;
+	map<node *, client_file_list *>::iterator iter = clientList.begin();
+
+	clientList.insert (iter, std::pair<node *,client_file_list *>(&temp_node, &arg3));
 	return &result;
 }

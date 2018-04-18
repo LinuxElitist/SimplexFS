@@ -2,9 +2,10 @@ const MAXIP = 16;
 const MAXCLIENTS = 3;
 const MAXFILENAME = 256;
 const MAXFILES = 30;
+const MAXFILELIST = 7680; /*256*30*/
 
 typedef string IP<MAXIP>;
-typedef string FILENAME<MAXFILENAME>;
+typedef string client_file_list<MAXFILELIST>;
 
 struct node {
     IP ip;
@@ -12,7 +13,6 @@ struct node {
 };
 typedef node node_list<MAXCLIENTS>;
 
-typedef FILENAME client_file_list<MAXFILES>;
 struct client_details {
     node client_node;
     client_file_list c_file_list;

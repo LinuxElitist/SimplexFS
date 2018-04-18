@@ -35,7 +35,7 @@ public:
     void get_load(IP ip, int port);
     void download(IP ip, int port);
     void update_list(IP ip, int port, client_file_list f_list);
-	client_file_list populate_file_list();
+	void populate_file_list();
 
 	Client(char *ip, char *host, int port) {
 		self_ip = ip;
@@ -46,7 +46,7 @@ public:
 			exit(1);
 		}
 
-		self_file_list = populate_file_list();
+		populate_file_list();
         update_list(self_ip, self_port, self_file_list);
         std::cout << ".....Completed client creation.....\n";
         //outputClientList();
@@ -80,17 +80,16 @@ public:
 
 };
 
-client_file_list Client:: populate_file_list() {
+void Client:: populate_file_list() {
 //TODO
 
-	client_file_list temp_list;
-	temp_list.client_file_list_len = 3;
-	temp_list.client_file_list_val = new FILENAME[3];
-	for(int j = 0; j<temp_list.client_file_list_len; j++){
-		FILENAME tmp = (FILENAME )"file1.txt";
-		temp_list.client_file_list_val[j] = tmp;
+    char temp_list[MAXFILELIST];
+    temp_list[0] = '\0';
+	int client_num_files = 3;
+	for(int j = 0; j<client_num_files; j++){
+		strcat(temp_list,"file1.txt"); //delimiter is .txt
 	}
-	return temp_list;
+	self_file_list = (client_file_list) temp_list;
 }
 
 void Client::file_find(char *filename) {

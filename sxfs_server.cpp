@@ -14,54 +14,38 @@ static map<pair<char *,int>,string> clientList;
 static map<pair<char *,int>,string >::iterator it = clientList.begin();
 
 
-//client_list buildClientList() {
-//	client_list res;
-//	res.client_list_val = new client_details[clientList.size()];
-//	res.client_list_len = clientList.size();
-//	int pos = 0;
-//	for (int i = 0; i < clientList.size(); i++) {
-//		client_details *c = res.client_list_val + pos;
-//		c->client_node.ip = new char[clientList[i].first.first.length() + 1];
-//		strcpy(c->client_node.ip, clientList[i].first.first.c_str());
-//		c->client_node.port = clientList[i].first.second;
-//		c->c_file_list = clientList[i].second;
-//		pos++;
-//	}
-//	return res;
-//}
-//
-//void outputClientList() {
-//	//output server list;
-//	cout << "outputing server list:" << endl;
-//    client_list clients = buildClientList();
-//	int pos = -1;
-//	std::string delimiter = ".txt";
-//	std::string name = "";
-//	for (int i = 0; i < clients.client_list_len; i++) {
-//		cout << (clients.client_list_val + i)->client_node.ip << " " << (clients.client_list_val + i)->client_node.port << " ";
-//		client_file_list  temp_list = (clients.client_list_val + i)->c_file_list;
-//		pos = -1;
-//		name = "";
-//		string remaining_list(temp_list, strlen(temp_list));
-//		do {
-//			pos = remaining_list.find(delimiter);
-//			name = remaining_list.substr(0, pos);   //returning line
-//			remaining_list = remaining_list.substr(pos + 1);  //returning rest of levels
-//			cout << name << " " << endl;
-//		} while(pos >= 0);
-//	}
-//	cout << endl;
-//}
+void outputClientList() {
+	//output server list;
+	cout << "outputing server list:" << endl;
+	int pos = -1;
+	std::string delimiter = ".txt";
+	std::string name = "";
+	client_file_list f_list;
+	map<pair<char *,int>, string >::iterator iter;
+	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+		cout << iter->first.first << ":" << iter->first.second << " ";
+		f_list = new char[(iter->second).length() +1];
+		strcpy(f_list,iter->second.c_str());
+		string remaining_list(f_list, strlen(f_list));
+		pos = -1;
+		name = "";
+		while(strcmp(remaining_list.c_str(),"") !=0) {
+			pos = remaining_list.find(delimiter);
+			name = remaining_list.substr(0, pos+4);   //returning line
+			remaining_list = remaining_list.substr(pos + 4);  //returning rest of levels
+			cout << name << " " << endl;
+		}
+		cout << endl;
+	}
+}
 
 node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
 	static node_list result;
-//	result.node_list_val = new node[MAXCLIENTS];
-//	result.node_list_len = MAXCLIENTS;
-	result.node_list_val = new node;
-	result.node_list_len = 0;
-	//outputClientList();
+	result.node_list_val = new node[clientList.size()];
+	result.node_list_len = clientList.size();
+	outputClientList();
 	client_file_list f_list;
 	int pos = -1;
 	int len = 0;
@@ -73,11 +57,12 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 		string remaining_list(f_list, strlen(f_list));
 		pos = remaining_list.find(arg1);
 		if(pos >= 0){
-			result.node_list_len++;
-			result.node_list_val->ip = new char[MAXIP];
-			result.node_list_val->port = iter->first.second;
-			strcpy(result.node_list_val->ip,iter->first.first);
-			cout << result.node_list_val->ip << ":" << result.node_list_val->port << "\n";
+			node *temp_node = result.node_list_val + len;
+			temp_node->ip= new char[MAXIP];
+			temp_node->port = iter->first.second;
+			strcpy(temp_node->ip,iter->first.first);
+			cout << temp_node->ip << ":" << temp_node->port << "\n";
+			len++;
 			break;
 		}
 	}

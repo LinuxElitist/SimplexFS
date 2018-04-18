@@ -1,4 +1,4 @@
-const MAXIP = 16;
+const MAXIP = 21;
 const MAXCLIENTS = 3;
 const MAXFILENAME = 256;
 const MAXFILES = 30;

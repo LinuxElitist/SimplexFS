@@ -6,11 +6,13 @@
 
 #include "sxfs.h"
 #include "peer_info.h"
-
+#include <sstream>
 using namespace std;
 
-//static vector<pair<pair<string,int>,client_file_list>> clientList;
-static map<node *,client_file_list *> clientList;
+
+static map<pair<char *,int>,string> clientList;
+static map<pair<char *,int>,string >::iterator it = clientList.begin();
+
 
 //client_list buildClientList() {
 //	client_list res;
@@ -55,20 +57,26 @@ node_list *
 file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
 	static node_list result;
-	result.node_list_val = new node[MAXCLIENTS];
+//	result.node_list_val = new node[MAXCLIENTS];
+//	result.node_list_len = MAXCLIENTS;
+	result.node_list_val = new node;
+	result.node_list_len = 0;
 	//outputClientList();
 	client_file_list f_list;
 	int pos = -1;
+	int len = 0;
 	cout << "node list is: \n";
-	map<node *, client_file_list *>::iterator iter = clientList.begin();
-	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
-		f_list = *(iter->second);
+	map<pair<char *,int>, string >::iterator iter;
+ 	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+		f_list = new char[(iter->second).length() +1];
+		strcpy(f_list,iter->second.c_str());
 		string remaining_list(f_list, strlen(f_list));
 		pos = remaining_list.find(arg1);
 		if(pos >= 0){
 			result.node_list_len++;
-			result.node_list_val->port = iter->first->port;
-			strcpy(result.node_list_val->ip, iter->first->ip);
+			result.node_list_val->ip = new char[MAXIP];
+			result.node_list_val->port = iter->first.second;
+			strcpy(result.node_list_val->ip,iter->first.first);
 			cout << result.node_list_val->ip << ":" << result.node_list_val->port << "\n";
 			break;
 		}
@@ -80,11 +88,14 @@ int *
 update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp)
 {
 	static int  result;
-	node temp_node;
-	temp_node.ip = arg1;
-	temp_node.port = arg2;
-	map<node *, client_file_list *>::iterator iter = clientList.begin();
 
-	clientList.insert (iter, std::pair<node *,client_file_list *>(&temp_node, &arg3));
+	char *ip = new char[strlen(arg1) + 1];
+	strcpy(ip, arg1);
+	stringstream self_file_list;
+	self_file_list << arg3;
+	clientList.insert (it, std::pair<pair<char *,int>,string >(make_pair(ip,arg2), self_file_list.str()));
+	it++;
+	cout << "arg3: " << ip << " " << arg2 << " " << arg3 << endl;
+
 	return &result;
 }

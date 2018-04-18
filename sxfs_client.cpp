@@ -99,7 +99,7 @@ void Client::file_find(char *filename) {
 	}
 	cout << "Node_list for " << filename << " is:\n";
 	for (int i = 0; i < result_1->node_list_len; i++) {
-		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << " ";
+		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << "\n";
 	}
 	cout << "\n";
 

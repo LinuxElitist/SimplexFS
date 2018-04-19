@@ -1,5 +1,3 @@
-export FS_ROOT=../5105_node_files
-
 # Individual node information
 # hostname,mp,cp
 export N0=serv_hostname

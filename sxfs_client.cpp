@@ -15,7 +15,9 @@
 #include <netdb.h>
 #include <thread>
 #include <iostream>
-
+#include <dirent.h>
+#include <sys/types.h>
+#define FS_ROOT "./5105_node_files"
 
 using namespace std;
 
@@ -45,7 +47,6 @@ public:
 			clnt_pcreateerror(host);
 			exit(1);
 		}
-
 		populate_file_list();
         update_list(self_ip, self_port, self_file_list);
         std::cout << ".....Completed client creation.....\n";
@@ -75,20 +76,27 @@ public:
 		}
 		if (clnt)
 			clnt_destroy(clnt);
-
 	}
-
 };
 
+//TODO: if a file is deleted , call populate_file_list and then update_list
 void Client:: populate_file_list() {
-//TODO
-
     char temp_list[MAXFILELIST];
     temp_list[0] = '\0';
-	int client_num_files = 3;
-	for(int j = 0; j<client_num_files; j++){
-		strcat(temp_list,"file1.txt"); //delimiter is .txt
+	int client_num_files = 0;
+	DIR *dir;
+    struct dirent *entry;
+	if((dir = opendir(FS_ROOT)) != NULL){
+		while ((entry = readdir(dir)) != NULL){
+    		if(strncmp(entry->d_name,".", 1) !=0) { //ignoring this directory , parent directory and hidden files
+				client_num_files++;
+				strcat(temp_list,entry->d_name);
+				strcat(temp_list," ");
+			}
+    	}
 	}
+	closedir(dir);
+	cout << "populating file list on client side: " << temp_list << endl;
 	self_file_list = (client_file_list) temp_list;
 }
 
@@ -128,7 +136,7 @@ void Client::download(IP ip, int port) { //TODO: make it UDP
 
 //TODO: update list to be called if download returned success
 void Client::update_list(IP ip, int port, client_file_list f_list) {
-    auto result_4 = update_list_1(ip, port, f_list, clnt);
+	auto result_4 = update_list_1(ip, port, f_list, clnt);
     if (result_4 == (int *) NULL) {
         clnt_perror(clnt, "call failed");
     }

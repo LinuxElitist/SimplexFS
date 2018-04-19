@@ -16,27 +16,9 @@ static map<pair<string,int>,string >::iterator it = clientList.begin();
 
 void outputClientList() {
 	cout << "outputing server list:" << endl;
-	int pos = -1;
-	std::string delimiter = ".txt";
-	std::string name = "";
-	client_file_list f_list;
 	map<pair<string,int>, string >::iterator iter;
 	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
-		cout << iter->first.first << ":" << iter->first.second << " ";
-		//converting string to type of client_file_list for populating
-		f_list = new char[(iter->second).length() +1];
-		strcpy(f_list,iter->second.c_str());
-		//extracting filenames from the file_list
-		string remaining_list(f_list, strlen(f_list));
-		pos = -1;
-		name = "";
-		while(strcmp(remaining_list.c_str(),"") !=0) {
-			pos = remaining_list.find(delimiter);
-			name = remaining_list.substr(0, pos+4);   //returning filename
-			remaining_list = remaining_list.substr(pos + 4);  //returning remaining filenames
-			cout << name << " " ;
-		}
-		cout << endl;
+		cout << iter->first.first << ":" << iter->first.second << " : " << iter->second.c_str() << endl;
 	}
 }
 
@@ -65,6 +47,7 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 			len++;
 			continue;
 		}
+		pos = -1;
 	}
 	return &result;
 }

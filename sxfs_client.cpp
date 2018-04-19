@@ -34,9 +34,9 @@ public:
     client_file_list self_file_list;
 
     void file_find(char *filename);
-    void get_load(IP ip, int port);
-    void download(IP ip, int port);
-    void update_list(IP ip, int port, client_file_list f_list);
+    void get_load();
+    void download(char *filename);
+    void update_list();
 	void populate_file_list();
 
 	Client(char *ip, char *host, int port) {
@@ -47,8 +47,7 @@ public:
 			clnt_pcreateerror(host);
 			exit(1);
 		}
-		populate_file_list();
-        update_list(self_ip, self_port, self_file_list);
+        update_list();
         std::cout << ".....Completed client creation.....\n";
         //outputClientList();
 
@@ -79,7 +78,7 @@ public:
 	}
 };
 
-//TODO: if a file is deleted , call populate_file_list and then update_list
+//TODO: if a file is deleted , call update_list
 void Client:: populate_file_list() {
     char temp_list[MAXFILELIST];
     temp_list[0] = '\0';
@@ -91,7 +90,7 @@ void Client:: populate_file_list() {
     		if(strncmp(entry->d_name,".", 1) !=0) { //ignoring this directory , parent directory and hidden files
 				client_num_files++;
 				strcat(temp_list,entry->d_name);
-				strcat(temp_list," ");
+				strcat(temp_list," "); //appending space for distinguishing filenames in the list
 			}
     	}
 	}
@@ -102,25 +101,26 @@ void Client:: populate_file_list() {
 
 void Client::file_find(char *filename) {
 	auto result_1 = file_find_1(filename, clnt);
-	if (result_1 == (node_list *) NULL) {
+	if (result_1 == (node_list *)NULL){
 		clnt_perror(clnt, "call failed");
 	}
-	cout << "Node_list for " << filename << " is:\n";
-	for (int i = 0; i < result_1->node_list_len; i++) {
-		cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val+i)->port << "\n";
+	else {
+		cout << "Node_list for " << filename << " is:\n";
+		for (int i = 0; i < result_1->node_list_len; i++) {
+			cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val + i)->port << "\n";
+		}
+		cout << "\n";
 	}
-	cout << "\n";
-
 }
 
-void Client::get_load(IP ip, int port) { //TODO: make it UDP
+void Client::get_load() { //TODO: make it UDP
 
 
     //if peer crashed
     //TODO: remove client from file_specific_client_list and then call update_list
 }
 
-void Client::download(IP ip, int port) { //TODO: make it UDP
+void Client::download(char *filename) { //TODO: make it UDP
     //TODO: implement latency in sending
     //recv_from();
     //calculate checksum of downloaded file
@@ -135,8 +135,9 @@ void Client::download(IP ip, int port) { //TODO: make it UDP
 }
 
 //TODO: update list to be called if download returned success
-void Client::update_list(IP ip, int port, client_file_list f_list) {
-	auto result_4 = update_list_1(ip, port, f_list, clnt);
+void Client::update_list() {
+	populate_file_list();
+	auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
     if (result_4 == (int *) NULL) {
         clnt_perror(clnt, "call failed");
     }
@@ -159,9 +160,43 @@ main (int argc, char *argv[])
     int self_port = stoi(argv[3]);
 
     Client conn(client_ip, serv_ip, self_port);
-
+	char func[1];
+	int func_number;
 	char search_filename[MAXFILENAME];
-	strcpy(search_filename,"file1.txt");
-	conn.file_find(search_filename);
+	while (1) {
+		std::cout << "Please enter what function you want to perform [1-5]:\n"
+				  << "Function description\n1 file_find\n2 download\n3 get_load\n4 update_list\n";
+		std::cin >> func;
+		try {
+			func_number = stoi(func);
+		}
+		catch (std::exception &e) {
+			cout << "ERROR:  Please limit operation values from 1-4 " << endl;
+			continue;
+		}
+		switch (func_number) {
+			case 1:
+				std::cout << "Please enter the filename to be searched:\n";
+				std::cin.get();
+				std::cin.getline(search_filename, MAXFILENAME);
+				conn.file_find(search_filename);
+				break;
+			case 2:
+				std::cout << "Please enter the filename to be downloaded:\n";
+				std::cin.get();
+				std::cin.getline(search_filename, MAXFILENAME);
+				conn.download(search_filename);
+				break;
+			case 3:
+				conn.get_load();
+				break;
+			case 4:
+				conn.update_list();
+				break;
+			default:
+				std::cout << "Wrong format specified. Please retry \n";
+				break;
+		}
+	}
     exit (0);
 }

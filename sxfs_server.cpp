@@ -27,11 +27,12 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 {
 	static node_list result;
 	result.node_list_val = new node[clientList.size()];
-	result.node_list_len = clientList.size();
+	result.node_list_len = 0;
 	client_file_list f_list;
 	int pos = -1;
 	int len = 0;
-	cout << "node list is: \n";
+    strcat(arg1, " "); //appending a space so it actually searches for entire word and not any substring in filename
+    cout << "node list is: \n";
 	map<pair<string,int>, string >::iterator iter;
  	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
 		f_list = new char[(iter->second).length() +1];
@@ -44,6 +45,7 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 			strcpy(temp_node->ip,iter->first.first.c_str());
 			temp_node->port = iter->first.second;
 			cout << temp_node->ip << ":" << temp_node->port << "\n";
+            result.node_list_len++;
 			len++;
 			continue;
 		}

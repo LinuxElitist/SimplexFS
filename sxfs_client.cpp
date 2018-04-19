@@ -36,8 +36,10 @@ public:
     void file_find(char *filename);
     void get_load();
     void download(char *filename);
-    void update_list();
 	void populate_file_list();
+	void update_list();
+	void remove_client();
+
 
 	Client(char *ip, char *host, int port) {
 		self_ip = ip;
@@ -73,12 +75,12 @@ public:
 		if (udp_thread.joinable()) {
 			udp_thread.join();
 		}
+		remove_client();
 		if (clnt)
 			clnt_destroy(clnt);
 	}
 };
 
-//TODO: if a file is deleted , call update_list
 void Client:: populate_file_list() {
     char temp_list[MAXFILELIST];
     temp_list[0] = '\0';
@@ -135,22 +137,25 @@ void Client::download(char *filename) { //TODO: make it UDP
 }
 
 //TODO: update list to be called if download returned success
+//TODO: if a file is deleted , call update_list
 void Client::update_list() {
 	populate_file_list();
 	auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
-    if (result_4 == (int *) NULL) {
+    if (*result_4 == -1) {
         clnt_perror(clnt, "call failed");
     }
 }
 
-
-//TODO: UPDATE_LIST to be called whever joining too.... if already in list, overwrite else push back
+void Client::remove_client(){
+	auto result_5 = remove_client_1(self_ip, self_port, clnt);
+	if (*result_5 == -1) {
+		clnt_perror(clnt, "call failed");
+	}
+}
 
 //TODO: scenario of a client leaving and then joining back cz we need checksum too
 
-int
-main (int argc, char *argv[])
-{
+int main (int argc, char *argv[]) {
     if (argc < 4) {
         std::cout << "Usage: ./clientside client_ip server_ip client_port\n";
         exit(1);
@@ -165,7 +170,7 @@ main (int argc, char *argv[])
 	char search_filename[MAXFILENAME];
 	while (1) {
 		std::cout << "Please enter what function you want to perform [1-5]:\n"
-				  << "Function description\n1 file_find\n2 download\n3 get_load\n4 update_list\n";
+				  << "Function description\n1 file_find\n2 download\n3 get_load\n4 update_list\n5 remove_client\n";
 		std::cin >> func;
 		try {
 			func_number = stoi(func);
@@ -193,10 +198,13 @@ main (int argc, char *argv[])
 			case 4:
 				conn.update_list();
 				break;
+			case 5:
+				conn.remove_client();
+				exit(0);
+				break;
 			default:
 				std::cout << "Wrong format specified. Please retry \n";
 				break;
 		}
 	}
-    exit (0);
 }

@@ -9,10 +9,8 @@
 #include <sstream>
 using namespace std;
 
-
 static map<pair<string,int>,string> clientList;
 static map<pair<string,int>,string >::iterator it = clientList.begin();
-
 
 void outputClientList() {
 	cout << "outputing server list:" << endl;
@@ -22,9 +20,7 @@ void outputClientList() {
 	}
 }
 
-node_list *
-file_find_1_svc(char *arg1,  struct svc_req *rqstp)
-{
+node_list *file_find_1_svc(char *arg1,  struct svc_req *rqstp) {
 	static node_list result;
 	result.node_list_val = new node[clientList.size()];
 	result.node_list_len = 0;
@@ -54,11 +50,8 @@ file_find_1_svc(char *arg1,  struct svc_req *rqstp)
 	return &result;
 }
 
-int *
-update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp)
-{
-	static int  result;
-
+int *update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp) {
+	static int  result = -1;
 	stringstream self_file_list;
 	self_file_list << arg3;
 	map<pair<string,int>,string >::iterator find_itr;
@@ -68,14 +61,20 @@ update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqst
 		clientList.insert (it, std::pair<pair<string,int>,string >(make_pair(arg1,arg2), self_file_list.str()));
 		it++;
 	}
-
-	/*TODO: removal of client from list when it fails
-	map<pair<char *,int>,string >::iterator find_itr;
-	find_itr = clientList.find(make_pair(ip,arg2));
-	if(find_itr != clientList.end()) {
-		clientList.erase(it);
-	}
-	 */
 	outputClientList();
+	result = 0;
 	return &result;
+}
+
+int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
+    static int  result = -1;
+    //removal of client from list when it fails
+    map<pair<string,int>,string >::iterator find_itr;
+    find_itr = clientList.find(make_pair(arg1,arg2));
+    if(find_itr != clientList.end()) {
+        clientList.erase(find_itr);
+    }
+    outputClientList();
+    result = 0;
+    return &result;
 }

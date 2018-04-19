@@ -2,18 +2,16 @@
 // Created by sandeep on 3/23/18.
 //
 
-#ifndef BULLETINBOARDCONSISTENCY_SERVER_H
-#define BULLETINBOARDCONSISTENCY_SERVER_H
 #pragma once
 #include <vector>
 #include <mutex>
 #include <netdb.h>
 
-class Server
+class TcpServer
 {
 public:
-    Server(int port, int num_conns);
-    ~Server();
+    TcpServer(int port, int num_conns);
+    ~TcpServer();
     int servListen();
     int servAccept();
     int servRead(int cli_num, char **buffer);
@@ -34,5 +32,3 @@ private:
     mutable std::mutex mtx;
 };
 
-
-#endif //BULLETINBOARDCONSISTENCY_SERVER_H

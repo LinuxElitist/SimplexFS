@@ -8,10 +8,11 @@
 #include <cstdio>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 using namespace std;
 
-Client::Client(const char *host, int port)  {
+TcpClient::TcpClient(const char *host, int port)  {
     char hostname[256];
     strcpy(hostname, host);
     portno = port;
@@ -28,7 +29,7 @@ Client::Client(const char *host, int port)  {
     }
 }
 
-int Client::clntOpen() {
+int TcpClient::clntOpen() {
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr,
@@ -43,25 +44,25 @@ int Client::clntOpen() {
     return 0;
 }
 
-int Client::clntWrite(const char *msg, int msg_size) {
+int TcpClient::clntWrite(const char *msg, int msg_size) {
     return g_write(sockfd, msg, msg_size);
 }
 
-int Client::clntRead(char **msg)  {
+int TcpClient::clntRead(char **msg)  {
     return g_read(sockfd, msg);
 }
 
-int Client::clntClose()  {
+int TcpClient::clntClose()  {
     if(close(sockfd) != 0) {
-        printf("ERROR closing client socket %d\n", sockfd);
+        printf("ERROR closing TcpClient socket %d\n", sockfd);
     }
 
     return 0;
 }
 
-int test_tcp_client(int argc, char *argv[]){
+int test_tcp_TcpClient(int argc, char *argv[]){
   if (argc < 4) {
-      std::cout << "Usage: ./clientside server_ip client_port msg\n";
+      std::cout << "Usage: ./TcpClientside server_ip TcpClient_port msg\n";
       exit(1);
   }
   char *serv_ip = (char *) argv[1];
@@ -71,7 +72,7 @@ int test_tcp_client(int argc, char *argv[]){
   char *return_msg;
   //char article_string[MAX_ARTICLE_LENGTH];
 
-  Client conn(serv_ip, self_port);
+  TcpClient conn(serv_ip, self_port);
   conn.clntOpen();
   conn.clntWrite(msg, strlen(msg));
   cout << "writing " << msg << "\n";

@@ -17,6 +17,12 @@
 #include <iostream>
 #include <dirent.h>
 #include <sys/types.h>
+#include <algorithm>
+#include "tcp_client.h"
+#include "tcp_server.h"
+#include "tcp_communication.h"
+#include "peer_info.h"
+
 #define FS_ROOT "./5105_node_files"
 
 using namespace std;
@@ -26,33 +32,45 @@ class Client;
 class Client {
 
 public:
-	CLIENT *clnt;
-	std::thread udp_thread;
-	int sock = -1;
-	char *self_ip;
-	int self_port;
+    CLIENT *clnt;
+    std::thread udp_thread;
+    int sock = -1;
+    char *self_ip;
+    int self_port;
     client_file_list self_file_list;
+    node_list *peers_with_file;
+    map<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
+    TcpClient *tcp_clnt; //create self as tcp client and serv doe peer operations
+    TcpServer *tcp_serv;
 
     void file_find(char *filename);
-    void get_load();
+
+    map<int, pair < char * , int>>::
+
+    iterator get_load();
+
     void download(char *filename);
-	void populate_file_list();
-	void update_list();
-	void remove_client();
 
+    void populate_file_list();
 
-	Client(char *ip, char *host, int port) {
-		self_ip = ip;
-		self_port = port;
-		clnt = clnt_create(host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
-		if (clnt == NULL) {
-			clnt_pcreateerror(host);
-			exit(1);
-		}
+    void update_list();
+
+    void remove_client();
+
+    static bool
+    compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
+
+    Client(char *ip, char *host, int port) {
+        self_ip = ip;
+        self_port = port;
+        clnt = clnt_create(host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
+        if (clnt == NULL) {
+            clnt_pcreateerror(host);
+            exit(1);
+        }
         update_list();
         std::cout << ".....Completed client creation.....\n";
-        //outputClientList();
-
+        tcp_serv = new TcpServer(self_port, MAXCLIENTS);
 //		struct sockaddr_in client_addr;
 //		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
 //			perror("socket()");
@@ -69,93 +87,139 @@ public:
 //			close(sock);
 //			perror("binding socket");
 //		}
-	}
+    }
 
-	~Client() {
-		if (udp_thread.joinable()) {
-			udp_thread.join();
-		}
-		remove_client();
-		if (clnt)
-			clnt_destroy(clnt);
-	}
+    ~Client() {
+        if (udp_thread.joinable()) {
+            udp_thread.join();
+        }
+        remove_client();
+        if (clnt)
+            clnt_destroy(clnt);
+    }
 };
 
-void Client:: populate_file_list() {
+void Client::populate_file_list() {
     char temp_list[MAXFILELIST];
     temp_list[0] = '\0';
-	int client_num_files = 0;
-	DIR *dir;
+    int client_num_files = 0;
+    DIR *dir;
     struct dirent *entry;
-	if((dir = opendir(FS_ROOT)) != NULL){
-		while ((entry = readdir(dir)) != NULL){
-    		if(strncmp(entry->d_name,".", 1) !=0) { //ignoring this directory , parent directory and hidden files
-				client_num_files++;
-				strcat(temp_list,entry->d_name);
-				strcat(temp_list," "); //appending space for distinguishing filenames in the list
-			}
-    	}
-	}
-	closedir(dir);
-	cout << "populating file list on client side: " << temp_list << endl;
-	self_file_list = (client_file_list) temp_list;
+    if ((dir = opendir(FS_ROOT)) != NULL) {
+        while ((entry = readdir(dir)) != NULL) {
+            if (strncmp(entry->d_name, ".", 1) != 0) { //ignoring this directory , parent directory and hidden files
+                client_num_files++;
+                strcat(temp_list, entry->d_name);
+                strcat(temp_list, " "); //appending space for distinguishing filenames in the list
+            }
+        }
+    }
+    closedir(dir);
+    cout << "populating file list on client side: " << temp_list << endl;
+    self_file_list = (client_file_list) temp_list;
 }
 
 void Client::file_find(char *filename) {
-	auto result_1 = file_find_1(filename, clnt);
-	if (result_1 == (node_list *)NULL){
-		clnt_perror(clnt, "call failed");
-	}
-	else {
-		cout << "Node_list for " << filename << " is:\n";
-		for (int i = 0; i < result_1->node_list_len; i++) {
-			cout << (result_1->node_list_val + i)->ip << ":" << (result_1->node_list_val + i)->port << "\n";
-		}
-		cout << "\n";
-	}
+    peers_with_file = file_find_1(filename, clnt);
+    if (peers_with_file == (node_list *) NULL) {
+        clnt_perror(clnt, "call failed");
+    } else {
+        cout << "Node_list for " << filename << " is:\n";
+        for (int i = 0; i < peers_with_file->node_list_len; i++) {
+            cout << (peers_with_file->node_list_val + i)->ip << ":" << (peers_with_file->node_list_val + i)->port
+                 << "\n";
+        }
+        cout << "\n";
+    }
 }
 
-void Client::get_load() { //TODO: make it UDP
+
+static bool Client::compare_first(const std::pair<int, pair<char *, int> > &lhs,
+                                  const std::pair<int, pair<char *, int> > &rhs) {
+    return lhs.first < rhs.first;
+}
 
 
-    //if peer crashed
+map<int, pair < char * , int>>
+
+::iterator Client::get_load() {
+    char *temp_load;
+    map < int, pair < char *, int >> ::iterator
+    load_itr = peer_load.begin();
+    for (int i = 0; i < peers_with_file->node_list_len; i++) {
+        //check if peer if self, then just get number of active clients
+        if ((strcmp(self_ip, (peers_with_file->node_list_val + i)->ip) == 0) &&
+            (self_port == (peers_with_file->node_list_val + i)->port)) {
+            peer_load.insert(load_itr, std::pair < int, pair < char * ,
+                             int >> (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
+        } else {
+            //create self as tcp client and serv doe peer operations
+            tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip,
+                                     (peers_with_file->node_list_val + i)->port);
+            tcp_clnt->clntOpen();
+            tcp_clnt->clntRead(&temp_load);
+            tcp_clnt->clntClose();
+            cout << "read " << atoi(temp_load) << "\n";
+            peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
+                                                                            (atoi(temp_load), make_pair(
+                                                                                    (peers_with_file->node_list_val +
+                                                                                     i)->ip,
+                                                                                    (peers_with_file->node_list_val +
+                                                                                     i)->port)));
+        }
+        load_itr++;
+    }
+    load_itr = min_element(peer_load.begin(), peer_load.end(), this->compare_first);
+    return load_itr;
+}
+
+void Client::download(char *filename) { //TODO: make it UDP     //if peer crashed
     //TODO: remove client from file_specific_client_list and then call update_list
+    file_find(filename);
+    if (peers_with_file->node_list_len == 0) {
+        cout << "File does not exist" << endl;
+    } else {
+        char *dest_ip;
+        int dest_port;
+        map < int, pair < char *, int >> ::iterator
+        min_load_index = get_load();
+        //dest_ip = peer_load[min_load_index].first;
+        //dest_port = peer_load[min_load_index].second;
+        //TODO: implement latency in sending
+        //recv_from();
+        //calculate checksum of downloaded file
+        //compare with original file and output success if checksum matches
+        //if success, add itself to the file_specific_client_list and call update_list
+
+
+
+
+        //if peer crashed
+        //TODO: remove client from file_specific_client_list and then call update_list
+    }
 }
 
-void Client::download(char *filename) { //TODO: make it UDP
-    //TODO: implement latency in sending
-    //recv_from();
-    //calculate checksum of downloaded file
-    //compare with original file and output success if checksum matches
-    //if success, add itself to the file_specific_client_list and call update_list
-
-
-
-
-    //if peer crashed
-    //TODO: remove client from file_specific_client_list and then call update_list
-}
-
+//TODO: on a separate thread, call update_list every 1 minute for file deletion and file addition, keep calling every minute even when rpc fails (this is in order to take care of server crashing and rejoining)
 //TODO: update list to be called if download returned success
 //TODO: if a file is deleted , call update_list
 void Client::update_list() {
-	populate_file_list();
-	auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
+    populate_file_list();
+    auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
     if (*result_4 == -1) {
         clnt_perror(clnt, "call failed");
     }
 }
 
-void Client::remove_client(){
-	auto result_5 = remove_client_1(self_ip, self_port, clnt);
-	if (*result_5 == -1) {
-		clnt_perror(clnt, "call failed");
-	}
+void Client::remove_client() {
+    auto result_5 = remove_client_1(self_ip, self_port, clnt);
+    if (*result_5 == -1) {
+        clnt_perror(clnt, "call failed");
+    }
 }
 
 //TODO: scenario of a client leaving and then joining back cz we need checksum too
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
     if (argc < 4) {
         std::cout << "Usage: ./clientside client_ip server_ip client_port\n";
         exit(1);
@@ -165,46 +229,47 @@ int main (int argc, char *argv[]) {
     int self_port = stoi(argv[3]);
 
     Client conn(client_ip, serv_ip, self_port);
-	char func[1];
-	int func_number;
-	char search_filename[MAXFILENAME];
-	while (1) {
-		std::cout << "Please enter what function you want to perform [1-5]:\n"
-				  << "Function description\n1 file_find\n2 download\n3 get_load\n4 update_list\n5 remove_client\n";
-		std::cin >> func;
-		try {
-			func_number = stoi(func);
-		}
-		catch (std::exception &e) {
-			cout << "ERROR:  Please limit operation values from 1-4 " << endl;
-			continue;
-		}
-		switch (func_number) {
-			case 1:
-				std::cout << "Please enter the filename to be searched:\n";
-				std::cin.get();
-				std::cin.getline(search_filename, MAXFILENAME);
-				conn.file_find(search_filename);
-				break;
-			case 2:
-				std::cout << "Please enter the filename to be downloaded:\n";
-				std::cin.get();
-				std::cin.getline(search_filename, MAXFILENAME);
-				conn.download(search_filename);
-				break;
-			case 3:
-				conn.get_load();
-				break;
-			case 4:
-				conn.update_list();
-				break;
-			case 5:
-				conn.remove_client();
-				exit(0);
-				break;
-			default:
-				std::cout << "Wrong format specified. Please retry \n";
-				break;
-		}
-	}
+    char func[1];
+    int func_number;
+    char search_filename[MAXFILENAME];
+    while (1) {
+        std::cout << "Please enter what function you want to perform [1-5]:\n"
+                  << "Function description\n1 file_find\n2 download\n3 get_load\n4 update_list\n5 remove_client\n";
+        std::cin >> func;
+        try {
+            func_number = stoi(func);
+        }
+        catch (std::exception &e) {
+            cout << "ERROR:  Please limit operation values from 1-4 " << endl;
+            continue;
+        }
+        switch (func_number) {
+            case 1:
+                std::cout << "Please enter the filename to be searched:\n";
+                std::cin.get();
+                std::cin.getline(search_filename, MAXFILENAME);
+                conn.file_find(search_filename);
+                break;
+            case 2:
+                std::cout << "Please enter the filename to be downloaded:\n";
+                std::cin.get();
+                std::cin.getline(search_filename, MAXFILENAME);
+                conn.download(search_filename);
+                break;
+            case 3:
+                conn.get_load();
+                break;
+            case 4:
+                conn.update_list();
+                break;
+            case 5:
+                conn.remove_client();
+                exit(0);
+                break;
+            default:
+                std::cout << "Wrong format specified. Please retry \n";
+                break;
+        }
+        conn.tcp_serv->servListen(); //TODO: place at right location
+    }
 }

@@ -10,13 +10,14 @@
 #include <algorithm>
 #include <netinet/in.h>
 #include <iostream>
+#include <stdlib.h>
 
 
 
 using namespace std;
 using std::vector;
 
-Server::Server(int port, int num_conns)
+TcpServer::TcpServer(int port, int num_conns)
         : portno(port), num_conns(num_conns) {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -29,11 +30,11 @@ Server::Server(int port, int num_conns)
     newsockfds = vector<int>(num_conns, -1);
 }
 
-Server::~Server() {
+TcpServer::~TcpServer() {
     servCloseAll();
 }
 
-int Server::servListen() {
+int TcpServer::servListen() {
     cout << "Listening on port " << portno << "\n";
     if (listen(sockfd, num_conns)) {
         cout << "Error Listening on port " << portno << "\n";
@@ -43,7 +44,7 @@ int Server::servListen() {
         return 0;
 }
 
-int Server::servAccept() {
+int TcpServer::servAccept() {
     socklen_t clilen = sizeof(cli_addr);
     int newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
     if (newsockfd < 0) {
@@ -59,11 +60,12 @@ int Server::servAccept() {
         }
     }
     mtx.unlock();
-    cout << "Accepting connection\n";
+    cout << "Accepting connection and sending load\n";
+    servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(), std::to_string(getNumActiveClients()).length());
     return cli_num;
 }
 
-int Server::servRead(int cli_num, char **msg) {
+int TcpServer::servRead(int cli_num, char **msg) {
     int bytes_read = g_read(newsockfds[cli_num], msg);
     if (bytes_read < 0) {
         newsockfds[cli_num] = -1;
@@ -71,7 +73,7 @@ int Server::servRead(int cli_num, char **msg) {
     return bytes_read;
 }
 
-int Server::servWrite(int cli_num, const char *msg, int msg_size) {
+int TcpServer::servWrite(int cli_num, const char *msg, int msg_size) {
     int bytes_written = g_write(newsockfds[cli_num], msg, msg_size);
     if (bytes_written < 0) {
         newsockfds[cli_num] = -1;
@@ -79,7 +81,7 @@ int Server::servWrite(int cli_num, const char *msg, int msg_size) {
     return bytes_written;
 }
 
-int Server::servClose(int cli_num) {
+int TcpServer::servClose(int cli_num) {
     int ret_code = 0;
     if (close(newsockfds[cli_num]) != 0) {
         cout << "Error closing socket " << newsockfds[cli_num] << "\n";
@@ -90,7 +92,7 @@ int Server::servClose(int cli_num) {
     return ret_code;
 }
 
-int Server::servCloseAll() {
+int TcpServer::servCloseAll() {
     int ret_code = 0;
     if (close(sockfd) != 0) {
         cout << "Error closing socket " << sockfd << "\n";
@@ -105,7 +107,7 @@ int Server::servCloseAll() {
     return ret_code;
 }
 
-int Server::getNumActiveClients() const {
+int TcpServer::getNumActiveClients() const {
     int ret = 0;
     mtx.lock();
     for (int i = 0; i < num_conns; i++) {
@@ -117,14 +119,14 @@ int Server::getNumActiveClients() const {
     return ret;
 }
 
-int Server::getNumConns() const { //gives max_connections allowed
+int TcpServer::getNumConns() const { //gives max_connections allowed
     return num_conns;
 }
 
 
-void test_tcp_server(int argc, char *argv[]) {
+void test_tcp_TcpServer(int argc, char *argv[]) {
     if (argc < 3) {
-        std::cout << "Usage: ./serverside port max_connections \n";
+        std::cout << "Usage: ./TcpServerside port max_connections \n";
         exit(1);
     }
     int self_port = stoi(argv[1]);
@@ -133,7 +135,7 @@ void test_tcp_server(int argc, char *argv[]) {
     char *msg2;
     //char article_string[MAX_ARTICLE_LENGTH];
 
-    Server serv(self_port, max_conn);
+    TcpServer serv(self_port, max_conn);
     while (1) {
         serv.servListen();
         serv.servRead(0, &msg);

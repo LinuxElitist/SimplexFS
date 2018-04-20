@@ -60,7 +60,7 @@ int TcpClient::clntClose()  {
     return 0;
 }
 
-int test_tcp_TcpClient(int argc, char *argv[]){
+int test_TcpClient(int argc, char *argv[]){
   if (argc < 4) {
       std::cout << "Usage: ./TcpClientside server_ip TcpClient_port msg\n";
       exit(1);

@@ -45,9 +45,7 @@ public:
 
     void file_find(char *filename);
 
-    map<int, pair < char * , int>>::
-
-    iterator get_load();
+    map<int, pair < char * , int>>::iterator get_load();
 
     void download(char *filename);
 
@@ -57,8 +55,7 @@ public:
 
     void remove_client();
 
-    static bool
-    compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
+    static bool compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
 
     Client(char *ip, char *host, int port) {
         self_ip = ip;
@@ -71,28 +68,8 @@ public:
         update_list();
         std::cout << ".....Completed client creation.....\n";
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
-//		struct sockaddr_in client_addr;
-//		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-//			perror("socket()");
-//			exit(1);
-//		}
-//		int optval = 1;
-//		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
-//		memset(&client_addr, 0, sizeof(client_addr));
-//		client_addr.sin_family = AF_INET;
-//		client_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-//		client_addr.sin_port = htons(self_port);
-//
-//		if (bind(sock, (struct sockaddr *) &client_addr, sizeof(client_addr)) == -1) {
-//			close(sock);
-//			perror("binding socket");
-//		}
     }
-
     ~Client() {
-        if (udp_thread.joinable()) {
-            udp_thread.join();
-        }
         remove_client();
         if (clnt)
             clnt_destroy(clnt);
@@ -126,32 +103,28 @@ void Client::file_find(char *filename) {
     } else {
         cout << "Node_list for " << filename << " is:\n";
         for (int i = 0; i < peers_with_file->node_list_len; i++) {
-            cout << (peers_with_file->node_list_val + i)->ip << ":" << (peers_with_file->node_list_val + i)->port
-                 << "\n";
+            cout << (peers_with_file->node_list_val + i)->ip << ":" << (peers_with_file->node_list_val + i)->port << endl;
         }
         cout << "\n";
     }
 }
 
 
-static bool Client::compare_first(const std::pair<int, pair<char *, int> > &lhs,
+bool Client::compare_first(const std::pair<int, pair<char *, int> > &lhs,
                                   const std::pair<int, pair<char *, int> > &rhs) {
     return lhs.first < rhs.first;
 }
 
 
-map<int, pair < char * , int>>
-
-::iterator Client::get_load() {
+map<int, pair < char * , int>>::iterator Client::get_load() {
     char *temp_load;
-    map < int, pair < char *, int >> ::iterator
-    load_itr = peer_load.begin();
+    map < int, pair < char *, int >>::iterator load_itr = peer_load.begin();
     for (int i = 0; i < peers_with_file->node_list_len; i++) {
         //check if peer if self, then just get number of active clients
         if ((strcmp(self_ip, (peers_with_file->node_list_val + i)->ip) == 0) &&
             (self_port == (peers_with_file->node_list_val + i)->port)) {
-            peer_load.insert(load_itr, std::pair < int, pair < char * ,
-                             int >> (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
+            peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
+                                      (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
         } else {
             //create self as tcp client and serv doe peer operations
             tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip,
@@ -161,11 +134,8 @@ map<int, pair < char * , int>>
             tcp_clnt->clntClose();
             cout << "read " << atoi(temp_load) << "\n";
             peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
-                                                                            (atoi(temp_load), make_pair(
-                                                                                    (peers_with_file->node_list_val +
-                                                                                     i)->ip,
-                                                                                    (peers_with_file->node_list_val +
-                                                                                     i)->port)));
+                                       (atoi(temp_load), make_pair((peers_with_file->node_list_val+i)->ip,
+                                                                   (peers_with_file->node_list_val+i)->port)));
         }
         load_itr++;
     }
@@ -181,10 +151,9 @@ void Client::download(char *filename) { //TODO: make it UDP     //if peer crashe
     } else {
         char *dest_ip;
         int dest_port;
-        map < int, pair < char *, int >> ::iterator
-        min_load_index = get_load();
-        //dest_ip = peer_load[min_load_index].first;
-        //dest_port = peer_load[min_load_index].second;
+        map < int, pair < char *, int >> ::iterator min_load_index = get_load();
+        dest_ip = min_load_index->second.first;
+        dest_port = min_load_index->second.second;
         //TODO: implement latency in sending
         //recv_from();
         //calculate checksum of downloaded file

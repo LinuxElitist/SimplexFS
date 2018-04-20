@@ -124,7 +124,7 @@ int TcpServer::getNumConns() const { //gives max_connections allowed
 }
 
 
-void test_tcp_TcpServer(int argc, char *argv[]) {
+void test_TcpServer(int argc, char *argv[]) {
     if (argc < 3) {
         std::cout << "Usage: ./TcpServerside port max_connections \n";
         exit(1);

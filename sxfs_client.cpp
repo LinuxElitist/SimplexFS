@@ -121,14 +121,8 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
     map < int, pair < char *, int >>::iterator load_itr = peer_load.begin();
     for (int i = 0; i < peers_with_file->node_list_len; i++) {
         //check if peer if self, then just get number of active clients
-        if ((strcmp(self_ip, (peers_with_file->node_list_val + i)->ip) == 0) &&
-            (self_port == (peers_with_file->node_list_val + i)->port)) {
-            peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
-                                      (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
-        } else {
-            //create self as tcp client and serv doe peer operations
-            tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip,
-                                     (peers_with_file->node_list_val + i)->port);
+        if ((strcmp(self_ip, (peers_with_file->node_list_val + i)->ip) != 0) ||
+            (self_port != (peers_with_file->node_list_val + i)->port)) {
             tcp_clnt->clntOpen();
             tcp_clnt->clntRead(&temp_load);
             tcp_clnt->clntClose();
@@ -136,6 +130,13 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
             peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
                                        (atoi(temp_load), make_pair((peers_with_file->node_list_val+i)->ip,
                                                                    (peers_with_file->node_list_val+i)->port)));
+        } else {
+            //create self as tcp client and serv doe peer operations
+            tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip, (peers_with_file->node_list_val + i)->port);
+            peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
+                                                 (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
+//           tcp_serv->servListen(); //TODO: multithread
+//           tcp_serv->servAccept();
         }
         load_itr++;
     }
@@ -143,8 +144,7 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
     return load_itr;
 }
 
-void Client::download(char *filename) { //TODO: make it UDP     //if peer crashed
-    //TODO: remove client from file_specific_client_list and then call update_list
+void Client::download(char *filename) { //TODO: make it UDP
     file_find(filename);
     if (peers_with_file->node_list_len == 0) {
         cout << "File does not exist" << endl;
@@ -154,6 +154,23 @@ void Client::download(char *filename) { //TODO: make it UDP     //if peer crashe
         map < int, pair < char *, int >> ::iterator min_load_index = get_load();
         dest_ip = min_load_index->second.first;
         dest_port = min_load_index->second.second;
+        char *clnt_file_contents;
+        char *serv_file_contents;
+        //if ip and port same as self, i.e. act like a server
+        if((strcmp(self_ip,dest_ip)!=0) || (self_port != dest_port)){
+            tcp_clnt = new TcpClient(dest_ip,dest_port);
+            tcp_clnt->clntOpen();
+            tcp_clnt->clntRead(&clnt_file_contents);
+            tcp_clnt->clntClose();
+            // TODO: create a file and write these contents
+            //TODO: update list to be called if download returned success
+        } else{
+            // TODO: open a file and read contents
+//            tcp_serv->servListen(); //TODO: multithread
+//          int client_num = tcp_serv->servAccept();
+            int client_num;
+            int bytes_written = tcp_serv->servWrite(client_num, serv_file_contents, strlen(serv_file_contents));
+        }
         //TODO: implement latency in sending
         //recv_from();
         //calculate checksum of downloaded file
@@ -169,8 +186,6 @@ void Client::download(char *filename) { //TODO: make it UDP     //if peer crashe
 }
 
 //TODO: on a separate thread, call update_list every 1 minute for file deletion and file addition, keep calling every minute even when rpc fails (this is in order to take care of server crashing and rejoining)
-//TODO: update list to be called if download returned success
-//TODO: if a file is deleted , call update_list
 void Client::update_list() {
     populate_file_list();
     auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
@@ -240,5 +255,6 @@ int main(int argc, char *argv[]) {
                 break;
         }
         conn.tcp_serv->servListen(); //TODO: place at right location
+        conn.tcp_serv->servAccept();
     }
 }

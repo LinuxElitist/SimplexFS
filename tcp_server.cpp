@@ -40,8 +40,7 @@ int TcpServer::servListen() {
         cout << "Error Listening on port " << portno << "\n";
         return -1;
     }
-    if (servAccept() >=0)
-        return 0;
+    return 0;
 }
 
 int TcpServer::servAccept() {
@@ -60,8 +59,11 @@ int TcpServer::servAccept() {
         }
     }
     mtx.unlock();
-    cout << "Accepting connection and sending load\n";
-    servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(), std::to_string(getNumActiveClients()).length());
+    if (cli_num >= 0) {
+        cout << "Accepting connection and sending load\n";
+        servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
+                  std::to_string(getNumActiveClients()).length());
+    }
     return cli_num;
 }
 
@@ -138,6 +140,7 @@ void test_TcpServer(int argc, char *argv[]) {
     TcpServer serv(self_port, max_conn);
     while (1) {
         serv.servListen();
+        serv.servAccept();
         serv.servRead(0, &msg);
         serv.servRead(1, &msg2);
         serv.servWrite(0, msg, strlen(msg));

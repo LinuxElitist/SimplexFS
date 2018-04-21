@@ -26,6 +26,7 @@
 #define FS_ROOT "./5105_node_files"
 
 using namespace std;
+using std::thread;
 
 class Client;
 
@@ -33,7 +34,14 @@ class Client {
 
 public:
     CLIENT *clnt;
-    std::thread udp_thread;
+    std::thread tcp_thread;
+  //  std::thread update_thread;
+    std::thread heartthread;
+    std::thread update_thread;
+    bool update_flag = false;
+    bool pingflag = false;
+
+
     int sock = -1;
     char *self_ip;
     int self_port;
@@ -55,6 +63,10 @@ public:
 
     void remove_client();
 
+    void update_thread_func();
+    int ping();
+    void heartbeat();
+
     static bool compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
 
     Client(char *ip, char *host, int port) {
@@ -65,10 +77,18 @@ public:
             clnt_pcreateerror(host);
             exit(1);
         }
+
         update_list();
         std::cout << ".....Completed client creation.....\n";
+        pingflag = true;
+        heartthread = std::thread(&Client::heartbeat, this);
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
+      //  heartbeat = thread(&Client::ping_thread_func,this);
+        update_thread = thread(&Client::update_thread_func,this);
     }
+
+
+
     ~Client() {
         remove_client();
         if (clnt)
@@ -131,12 +151,13 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
                                        (atoi(temp_load), make_pair((peers_with_file->node_list_val+i)->ip,
                                                                    (peers_with_file->node_list_val+i)->port)));
         } else {
-            //create self as tcp client and serv doe peer operations
+            //create self as tcp client and servr does peer operations
             tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip, (peers_with_file->node_list_val + i)->port);
             peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
                                                  (tcp_serv->getNumActiveClients(), make_pair(self_ip, self_port)));
-//           tcp_serv->servListen(); //TODO: multithread
-//           tcp_serv->servAccept();
+
+        //tcp_thread = std::thread(&TcpServer::servListen,tcp_serv); //TODO: multithread
+//accept_thread= std::thread(&TcpServer::servAccept,tcp_serv);
         }
         load_itr++;
     }
@@ -146,6 +167,7 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
 
 void Client::download(char *filename) { //TODO: make it UDP
     file_find(filename);
+
     if (peers_with_file->node_list_len == 0) {
         cout << "File does not exist" << endl;
     } else {
@@ -166,10 +188,15 @@ void Client::download(char *filename) { //TODO: make it UDP
             //TODO: update list to be called if download returned success
         } else{
             // TODO: open a file and read contents
-//            tcp_serv->servListen(); //TODO: multithread
+          // tcp_thread = std::thread(&TcpServer::servListen,tcp_serv);
+          tcp_serv->servListen();
+          //  accept_thread= std::thread(&TcpServer::servAccept,tcp_serv);
+
+            // tcp_thread.detach();
+            // accept_thread.detach();
 //          int client_num = tcp_serv->servAccept();
             int client_num;
-            int bytes_written = tcp_serv->servWrite(client_num, serv_file_contents, strlen(serv_file_contents));
+         int bytes_written = tcp_serv->servWrite(client_num, serv_file_contents, strlen(serv_file_contents));
         }
         //TODO: implement latency in sending
         //recv_from();
@@ -182,6 +209,8 @@ void Client::download(char *filename) { //TODO: make it UDP
 
         //if peer crashed
         //TODO: remove client from file_specific_client_list and then call update_list
+    //    tcp_thread.join();
+        //update_thread.join();
     }
 }
 
@@ -194,12 +223,48 @@ void Client::update_list() {
     }
 }
 
-void Client::remove_client() {
+void Client::remove_client(){
     auto result_5 = remove_client_1(self_ip, self_port, clnt);
     if (*result_5 == -1) {
         clnt_perror(clnt, "call failed");
     }
 }
+
+int Client::ping() {
+    auto output = ping_1(clnt);
+    if (output == NULL) {
+        clnt_perror(clnt, "Cannot ping server");
+        return 1;
+    } //only print to the user if there is failure
+    return *output;
+}
+
+void Client::heartbeat() {
+        sleep(5);
+        ping();
+    
+}
+
+
+void Client::update_thread_func() {
+
+      //mutex tclient_lock;
+
+        // char ping_val = 'p';
+        // char *buf = NULL;
+        update_flag = true;
+
+        while(update_flag) {
+        sleep(60);
+        update_list();
+      }
+        //tclient_lock.lock();
+    //     tcp_clnt->clntWrite(&ping_val, sizeof(ping_val));
+    //     tcp_clnt->clntRead(&buf);
+    //     tclient_lock.unlock();
+    //     delete[] buf;
+    }
+
 
 //TODO: scenario of a client leaving and then joining back cz we need checksum too
 
@@ -208,6 +273,7 @@ int main(int argc, char *argv[]) {
         std::cout << "Usage: ./clientside client_ip server_ip client_port\n";
         exit(1);
     }
+
     char *client_ip = (char *) argv[1];
     char *serv_ip = (char *) argv[2];
     int self_port = stoi(argv[3]);
@@ -254,7 +320,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "Wrong format specified. Please retry \n";
                 break;
         }
-        conn.tcp_serv->servListen(); //TODO: place at right location
-        conn.tcp_serv->servAccept();
+      //  conn.tcp_serv->servListen(); //TODO: place at right location
+      //  conn.tcp_serv->servAccept();
     }
 }

@@ -78,3 +78,13 @@ int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
     result = 0;
     return &result;
 }
+
+int *
+ping_1_svc(struct svc_req *rqstp) {
+    static int err_code = -1;
+
+    std::cout << "ping received\n";
+    err_code = 0;
+
+    return &err_code;
+}

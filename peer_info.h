@@ -15,12 +15,28 @@
 #include <set>
 #include <map>
 #include <iostream>
-
-
-#define BUFFER_SIZE 1024
-
 using namespace std;
 
-void md5sum(const char * const filename, unsigned char *sum);
+class PeerInfo {
 
+#define BUFFER_SIZE 1024
+public:
+    string ip;
+    int port;
+    string name;
+    unsigned char *buf;
+    int size;
+
+//using namespace std;
+// string getIp();
+// int getPort();
+// string toString ();
+PeerInfo(string ip, int port);
+PeerInfo(const std::string &name);
+const unsigned char *content() const;
+int gsize();
+bool hasContent() const;
+//void md5sum(const char * const filename, unsigned char *sum);
+
+};
 #endif //SIMPLEXFS_PEER_INFO_H

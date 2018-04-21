@@ -21,6 +21,33 @@ using namespace std;
 
 class PeerInfo;
 
+PeerInfo::PeerInfo(int num) {
+char *n = NULL;
+int i =0 ;
+string node_name = "N" + to_string(num);
+n = getenv(node_name.c_str());
+
+while(n) {
+
+nodes.push_back(new NodeDet(num));
+i++;
+node_name = "N" + to_string(i);
+n = getenv(node_name.c_str());
+
+}
+}
+NodeDet PeerInfo::getNode(int num) const {
+
+return *nodes[num];
+
+}
+
+int PeerInfo::getNumNodes() const {
+
+return nodes.size();
+
+}
+
 PeerInfo::PeerInfo(string ip, int port) {
 
   //Have a check here for invalid ip or not
@@ -109,8 +136,6 @@ PeerInfo::PeerInfo(const std::string &name) {
   }
 
   //md5sum(name); // Ok ?
-
-
 
 }
 

@@ -15,6 +15,7 @@
 #include <set>
 #include <map>
 #include <iostream>
+#include "node_determination.h"
 using namespace std;
 
 class PeerInfo {
@@ -26,11 +27,16 @@ public:
     string name;
     unsigned char *buf;
     int size;
+    int num;
+std::vector<NodeDet*> nodes;
 
 //using namespace std;
 // string getIp();
 // int getPort();
 // string toString ();
+PeerInfo(int num);
+NodeDet getNode(int num) const;
+int getNumNodes() const;
 PeerInfo(string ip, int port);
 PeerInfo(const std::string &name);
 const unsigned char *content() const;

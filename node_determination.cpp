@@ -22,6 +22,7 @@
 //#
 //
 #include "node_determination.h"
+#include "peer_info.h"
 #include "sxfs.h"
 #include <cstdlib>
 #include <vector>
@@ -29,50 +30,60 @@
 using std::vector;
 using std::string;
 using std::to_string;
+using namespace std;
 
 NodeDet::NodeDet() : nodename(""), hostname("") {//, client_port(0), server_port(0) {
 }
 
-NodeDet::NodeDet(int num) {
+NodeDet::NodeDet(int number) {
+  nodenum = number;
     char *sh = NULL;
     int i = 0;
-    nodename = "N" + to_string(num);
+   nodename = "N" + to_string(number);
     sh = getenv(nodename.c_str());
     if (!sh) {
+        nodenum = -1;
         nodename = "";
         hostname = "";
-//        client_port = 0;
-//        server_port = 0;
+        client_port = 0;
         return;
     }
-    vector <string> node_info = str_split(sh, ',');
+    vector <string> node_info = str_split(sh, ':');
 
-    // Node info is host,mp,cp
+
     hostname = node_info[0];
-//    client_port = atoi(node_info[1].c_str());
-//    server_port = atoi(node_info[2].c_str());
+    client_port = atoi(node_info[1].c_str());
 
     // Populate latency relationships
     char relainfo[MAXFILENAME];
     snprintf(relainfo, MAXFILENAME, "REL%d", i);
     sh = getenv(relainfo);
+
     while (sh) {
         vector <string> rel_info = str_split(sh, ',');
-        string other;
-        int lat;
-        if (rel_info[0] == nodename) {
-            other = rel_info[1];
-            lat = atoi(rel_info[2].c_str());
-            latencies[other] = lat;
-        } else if (rel_info[1] == nodename) {
-            other = rel_info[0];
-            lat = atoi(rel_info[2].c_str());
-            latencies[other] = lat;
-        }
-        i++;
-        snprintf(relainfo, MAXFILENAME, "REL%d", i);
-        sh = getenv(relainfo);
-    }
+
+
+       int lat;
+       string left,right;
+
+        left =  rel_info[0];
+        right = rel_info[1];
+        lat = atoi(rel_info[2].c_str());
+
+       if (strcmp(left.c_str(),nodenum.c_str()) == 0) {
+
+         latencies[right] = lat;
+       }
+       else if (strcmp(right.c_str(),nodenum.c_str()) == 0) {
+         latencies[left] = lat;
+
+       }
+
+       i++;
+       snprintf(relainfo,64,"REL%d", i);
+       sh = getenv(relainfo);
+
+     }
 }
 
 std::vector <string> NodeDet::str_split(const std::string &str, char delimiter) {
@@ -91,5 +102,9 @@ std::vector <string> NodeDet::str_split(const std::string &str, char delimiter) 
 }
 
 int test_node_determination() {
-    NodeDet *node = new NodeDet(1);
+  // NodeDet *node = new NodeDet(getenv(N0));
+  //   NodeDet *node = new NodeDet(getenv(N1));
+  //   NodeDet *node = new NodeDet(getenv(N2));
+  //   NodeDet *node = new NodeDet(getenv(N3));
+
 }

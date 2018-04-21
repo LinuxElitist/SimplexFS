@@ -1,7 +1,3 @@
-//
-// Created by sandeep on 3/23/18.
-//
-
 #include "tcp_server.h"
 #include "tcp_communication.h"
 #include <cstdio>
@@ -59,11 +55,14 @@ int TcpServer::servAccept() {
         }
     }
     mtx.unlock();
-    if (cli_num >= 0) {
-        cout << "Accepting connection and sending load\n";
+    cout << "Accepting connection\n";
+
+    if(cli_num >= 0){
+        cout << "sending load\n";
         servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
                   std::to_string(getNumActiveClients()).length());
     }
+
     return cli_num;
 }
 

@@ -1,7 +1,3 @@
-//
-// Created by sandeep on 3/23/18.
-//
-
 #pragma once
 #include <vector>
 #include <mutex>
@@ -31,4 +27,3 @@ private:
 
     mutable std::mutex mtx;
 };
-

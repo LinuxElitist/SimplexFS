@@ -22,6 +22,7 @@
 #include "tcp_server.h"
 #include "tcp_communication.h"
 #include "peer_info.h"
+#include "node_determination.h"
 
 #define FS_ROOT "./5105_node_files"
 
@@ -68,6 +69,7 @@ public:
     void heartbeat();
 
     static bool compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
+    static bool compare_equal(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
 
     Client(char *ip, char *host, int port) {
         self_ip = ip;
@@ -135,6 +137,11 @@ bool Client::compare_first(const std::pair<int, pair<char *, int> > &lhs,
     return lhs.first < rhs.first;
 }
 
+bool Client::compare_equal(const std::pair<int, pair<char *, int> > &lhs,
+                                  const std::pair<int, pair<char *, int> > &rhs) {
+    return lhs.first == rhs.first;
+}
+
 
 map<int, pair < char * , int>>::iterator Client::get_load() {
     char *temp_load;
@@ -167,13 +174,32 @@ map<int, pair < char * , int>>::iterator Client::get_load() {
 
 void Client::download(char *filename) { //TODO: make it UDP
     file_find(filename);
-
+std::vector<string> minEqualLoad;
+string temp_nodename= "";
     if (peers_with_file->node_list_len == 0) {
         cout << "File does not exist" << endl;
     } else {
         char *dest_ip;
         int dest_port;
         map < int, pair < char *, int >> ::iterator min_load_index = get_load();
+        int min_load = min_load_index->first;
+        map< int, pair < char *, int >>::iterator find_itr;
+        find_itr = peer_load.find(min_load);
+        temp_nodename = find_itr->second.first;
+        temp_nodename.append(to_string(find_itr->second.second));
+        minEqualLoad.push_back(temp_nodename);
+        find_itr++;
+        while(find_itr != peer_load.end()) {
+          if (find_itr == peer_load.find(min_load)){
+            temp_nodename = find_itr->second.first;
+            temp_nodename.append(to_string(find_itr->second.second));
+            minEqualLoad.push_back(temp_nodename);
+            find_itr++;
+          }
+        }
+        temp_nodename = self_ip;
+        temp_nodename.append(to_string(self_port));
+        NodeDet *peernode = new NodeDet(temp_nodename);
         dest_ip = min_load_index->second.first;
         dest_port = min_load_index->second.second;
         char *clnt_file_contents;
@@ -242,7 +268,7 @@ int Client::ping() {
 void Client::heartbeat() {
         sleep(5);
         ping();
-    
+
 }
 
 

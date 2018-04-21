@@ -59,12 +59,18 @@ int TcpServer::servAccept() {
         }
     }
     mtx.unlock();
-    if (cli_num >= 0) {
-        cout << "Accepting connection and sending load\n";
-        servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
+    cout << "Accepting connection\n";
+    return cli_num;
+}
+
+int TcpServer::servWriteLoad(int cli_num) {
+    int bytes_written = -1;
+    if(cli_num >= 0){
+        cout << "sending load\n";
+        bytes_written = servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
                   std::to_string(getNumActiveClients()).length());
     }
-    return cli_num;
+    return bytes_written;
 }
 
 int TcpServer::servRead(int cli_num, char **msg) {
@@ -149,3 +155,4 @@ void test_TcpServer(int argc, char *argv[]) {
         cout << "#activeClients " << serv.getNumActiveClients() << "\n";
     }
 }
+

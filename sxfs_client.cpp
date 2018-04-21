@@ -44,8 +44,7 @@ public:
     bool tcp_flag = false;
     void update_thread_func();
     void heartbeat();
-    void tcp_thread_func(TcpServer *tcp_serv);
-    std::mutex load_lock;
+    void tcp_thread_func();
 
     //class fields
     CLIENT *clnt;
@@ -88,7 +87,7 @@ public:
         update_flag = true;
         update_thread = thread(&Client::update_thread_func,this);
         tcp_flag = true;
-        tcp_thread = thread(&Client::tcp_thread_func, this, tcp_serv);
+        tcp_thread = thread(&Client::tcp_thread_func, this);
     }
 
     ~Client() {
@@ -131,15 +130,11 @@ void Client::update_thread_func() {
     }
 }
 
-void Client::tcp_thread_func(TcpServer *tcp_serv) {
+void Client::tcp_thread_func() {
     while(tcp_flag){
-//        tcp_serv = new TcpServer(self_port, MAXCLIENTS);
         tcp_serv->servListen();
-        if(load_lock.try_lock()) {
-            client_number = tcp_serv->servAccept();
-            num_active_clients = tcp_serv->getNumActiveClients();
-        }
-        load_lock.unlock();
+        client_number = tcp_serv->servAccept();
+        num_active_clients = tcp_serv->getNumActiveClients();
     }
 }
 
@@ -176,29 +171,21 @@ void Client::file_find(char *filename) {
     }
 }
 
-//TODO: call get load inside loop instead of loop inside get_load
 int Client::get_load(char * peer_ip, int peer_port) {
     char *temp_load;
     int load = 0;
     if ((strcmp(self_ip, peer_ip) != 0) || (self_port != peer_port)) {
+        tcp_clnt = new TcpClient(peer_ip,peer_port);
         tcp_clnt->clntOpen();
         tcp_clnt->clntRead(&temp_load);
         tcp_clnt->clntClose();
+        free(tcp_clnt);
         load = atoi(temp_load);
-        cout << "read load" << load << "\n";
+        cout << "read load " << load << "\n";
     } else {
             //create self as tcp client and servr does peer operations
-            //tcp_clnt = new TcpClient((peers_with_file->node_list_val + i)->ip, (peers_with_file->node_list_val + i)->port);
-//            tcp_flag = true;
-//            tcp_thread = thread(&Client::tcp_thread_func, this);
-        //TODO: lock
-        if(load_lock.try_lock()) {
-            tcp_serv->servWriteLoad(client_number);
-            load = num_active_clients;
-        }
-        load_lock.unlock();
+        load = num_active_clients;
         cout << "read self load " << load << "\n";
-//accept_thread= thread(&TcpServer::servAccept,tcp_serv);
     }
     return load;
 }
@@ -248,19 +235,17 @@ void Client::download(char *filename) { //TODO: make it UDP
         //if ip and port same as self, i.e. act like a server
         if((strcmp(self_ip,dest_ip)!=0) || (self_port != dest_port)){
             tcp_clnt = new TcpClient(dest_ip,dest_port);
+            char *temp;
             tcp_clnt->clntOpen();
+            tcp_clnt->clntRead(&temp);
             tcp_clnt->clntRead(&clnt_file_contents);
             tcp_clnt->clntClose();
+            free(tcp_clnt);
             // TODO: create a file and write these contents
             //TODO: update list to be called if download returned success
         } else{
             // TODO: open a file and read contents
-//            tcp_flag = true;
-//            tcp_thread = thread(&Client::tcp_thread_func, this);
-//            client_number = tcp_serv->servAccept();
-
-            //int client_num = tcp_serv->servAccept();
-        //    int bytes_written = tcp_serv->servWrite(client_number, serv_file_contents, strlen(serv_file_contents));
+            int bytes_written = tcp_serv->servWrite(client_number, serv_file_contents, strlen(serv_file_contents));
         }
 
         //TODO: implement latency in sending
@@ -274,7 +259,6 @@ void Client::download(char *filename) { //TODO: make it UDP
 
         //if peer crashed
         //TODO: remove client from file_specific_client_list and then call update_list
-
     }
 }
 

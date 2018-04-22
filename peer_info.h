@@ -28,7 +28,7 @@ public:
     unsigned char *buf;
     int size;
     int num;
-std::vector<NodeDet*> nodes;
+std::vector<NodeDet> nodes;
 
 //using namespace std;
 // string getIp();

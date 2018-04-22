@@ -52,7 +52,7 @@ NodeDet::NodeDet(int number) {
 
 
     hostname = node_info[0];
-    client_port = atoi(node_info[1].c_str());
+    client_port = stoi(node_info[1]);
 
     // Populate latency relationships
     char relainfo[MAXFILENAME];
@@ -70,11 +70,11 @@ NodeDet::NodeDet(int number) {
         right = rel_info[1];
         lat = atoi(rel_info[2].c_str());
 
-       if (strcmp(left.c_str(),nodenum.c_str()) == 0) {
+       if (strcmp(left.c_str(),nodename.c_str()) == 0) {
 
          latencies[right] = lat;
        }
-       else if (strcmp(right.c_str(),nodenum.c_str()) == 0) {
+       else if (strcmp(right.c_str(),nodename.c_str()) == 0) {
          latencies[left] = lat;
 
        }

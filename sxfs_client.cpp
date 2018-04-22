@@ -17,6 +17,7 @@
 #include <iostream>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <algorithm>
 #include "tcp_client.h"
 #include "tcp_server.h"
@@ -24,6 +25,7 @@
 #include "peer_info.h"
 #include "node_determination.h"
 #include <mutex>
+#include <fstream>
 
 #define FS_ROOT "./5105_node_files"
 
@@ -179,6 +181,7 @@ int Client::get_load(char * peer_ip, int peer_port) {
         tcp_clnt->clntOpen();
         tcp_clnt->clntRead(&temp_load);
         tcp_clnt->clntClose();
+        tcp_serv->servClose(client_number);
         free(tcp_clnt);
         load = atoi(temp_load);
         cout << "read load " << load << "\n";
@@ -190,7 +193,7 @@ int Client::get_load(char * peer_ip, int peer_port) {
     return load;
 }
 
-void Client::download(char *filename) { //TODO: make it UDP
+void Client::download(char *filename) {
     file_find(filename);
     std::vector<string> minEqualLoad;
     string temp_nodename= "";
@@ -211,54 +214,87 @@ void Client::download(char *filename) { //TODO: make it UDP
         }
         load_itr = min_element(peer_load.begin(), peer_load.end(), this->compare_first);
         int min_load = load_itr->first;
-        map< int, pair < char *, int >>::iterator find_itr;
-        find_itr = peer_load.find(min_load);
-        temp_nodename = find_itr->second.first;
-        temp_nodename.append(to_string(find_itr->second.second));
-        minEqualLoad.push_back(temp_nodename);
-        find_itr++;
-        while(find_itr != peer_load.end()) {
-            if (find_itr == peer_load.find(min_load)){
-                temp_nodename = find_itr->second.first;
-                temp_nodename.append(to_string(find_itr->second.second));
-                minEqualLoad.push_back(temp_nodename);
-                find_itr++;
-            }
-        }
-        temp_nodename = self_ip;
-        temp_nodename.append(to_string(self_port));
+
+        //TODO: what if similar loads
+//        map< int, pair < char *, int >>::iterator find_itr;
+//        find_itr = peer_load.find(min_load);
+//        temp_nodename = find_itr->second.first;
+//        temp_nodename.append(to_string(find_itr->second.second));
+//        minEqualLoad.push_back(temp_nodename);
+//        find_itr++;
+//        while(find_itr != peer_load.end()) {
+//            if (find_itr == peer_load.find(min_load)){
+//                temp_nodename = find_itr->second.first;
+//                temp_nodename.append(to_string(find_itr->second.second));
+//                minEqualLoad.push_back(temp_nodename);
+//                find_itr++;
+//            }
+//        }
+//        temp_nodename = self_ip;
+//        temp_nodename.append(to_string(self_port));
+
 //        NodeDet *peernode = new NodeDet(temp_nodename);
         dest_ip = load_itr->second.first;
         dest_port = load_itr->second.second;
         char *clnt_file_contents;
-        char *serv_file_contents;
         //if ip and port same as self, i.e. act like a server
         if((strcmp(self_ip,dest_ip)!=0) || (self_port != dest_port)){
             tcp_clnt = new TcpClient(dest_ip,dest_port);
             char *temp;
             tcp_clnt->clntOpen();
             tcp_clnt->clntRead(&temp);
+            tcp_clnt->clntWrite(filename,strlen(filename));
             tcp_clnt->clntRead(&clnt_file_contents);
             tcp_clnt->clntClose();
             free(tcp_clnt);
-            // TODO: create a file and write these contents
-            //TODO: update list to be called if download returned success
+            // create a file and write these contents
+            ofstream client_file(filename);
+            if(client_file.is_open()){ //if able to open the file
+                client_file << clnt_file_contents ;
+                client_file.close();
+                cout << "contents: " << clnt_file_contents << endl;
+                //TODO: update list to be called if checksum returned success
+                update_list();
+            }
+            else{
+                cout << "Unable to create " << filename << endl;
+                return;
+            }
         } else{
-            // TODO: open a file and read contents
-            int bytes_written = tcp_serv->servWrite(client_number, serv_file_contents, strlen(serv_file_contents));
+            // open a file and read contents
+            ifstream existing_file(filename);
+            if(existing_file.good()==0){
+                cout << "File already exists" << endl; //not overwriting as not considering consistency issues
+                return;
+            }
+            else {
+                char **file_to_download;
+                tcp_serv->servRead(client_number, file_to_download);
+                ifstream peer_file(*file_to_download);
+                streampos size;
+                char *peer_file_contents;
+                if (peer_file.is_open()) {
+                    size = peer_file.tellg();
+                    peer_file_contents = new char[size];
+                    peer_file.read(peer_file_contents, size);
+                    peer_file.close();
+                    cout << "write: " << peer_file_contents << endl;
+                    if (tcp_serv->servWrite(client_number, peer_file_contents, strlen(peer_file_contents)) != size) {
+                        cout << "Unable to transfer full file" << endl;
+                        delete[] peer_file_contents;
+                        return;
+                    }
+                    delete[] peer_file_contents;
+                } else {
+                    cout << "Unable to open " << filename << " So can not transfer the file contents" << endl;
+                    return;
+                }
+            }
         }
 
         //TODO: implement latency in sending
-        //recv_from();
         //calculate checksum of downloaded file
         //compare with original file and output success if checksum matches
-        //if success, add itself to the file_specific_client_list and call update_list
-
-
-
-
-        //if peer crashed
-        //TODO: remove client from file_specific_client_list and then call update_list
     }
 }
 
@@ -286,6 +322,9 @@ int Client::ping() {
         clnt_perror(clnt, "Cannot ping server");
         return 1;
     } //only print to the user if there is failure
+
+    //if peer crashed
+    //TODO: remove client from file_specific_client_list and then call update_list
     return *output;
 }
 

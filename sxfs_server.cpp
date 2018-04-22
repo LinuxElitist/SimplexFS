@@ -61,6 +61,9 @@ int *update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req 
 		clientList.insert (it, std::pair<pair<string,int>,string >(make_pair(arg1,arg2), self_file_list.str()));
 		it++;
 	}
+	else{
+		find_itr->second = self_file_list.str();
+	}
 	outputClientList();
 	result = 0;
 	return &result;

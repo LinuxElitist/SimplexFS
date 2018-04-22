@@ -153,7 +153,7 @@ bool PeerInfo::hasContent() const {
 }
 
 
-int main() {
+int test_peer_info() {
 PeerInfo(1);
 
 

@@ -181,7 +181,7 @@ int Client::get_load(char * peer_ip, int peer_port) {
         tcp_clnt->clntOpen();
         tcp_clnt->clntRead(&temp_load);
         tcp_clnt->clntClose();
-        tcp_serv->servClose(client_number);
+//        tcp_serv->servClose(client_number);
         free(tcp_clnt);
         load = atoi(temp_load);
         cout << "read load " << load << "\n";

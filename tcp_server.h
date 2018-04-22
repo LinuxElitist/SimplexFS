@@ -18,6 +18,8 @@ public:
     int getNumConns() const;
 
     std::vector<int> newsockfds;
+    char *download_flag;
+
 
 private:
     int num_conns;

@@ -56,13 +56,13 @@ int TcpServer::servAccept() {
     }
     mtx.unlock();
     cout << "Accepting connection\n";
-
+    strcpy(download_flag, "false");
     if(cli_num >= 0){
         cout << "sending load\n";
         servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
                   std::to_string(getNumActiveClients()).length());
+        servRead(cli_num, &download_flag);
     }
-
     return cli_num;
 }
 

@@ -44,11 +44,9 @@ public:
     bool update_flag = false;
     bool heartbeat_flag = false;
     bool tcp_flag = false;
-    bool download_flag = false;
     void update_thread_func();
     void heartbeat();
     void tcp_thread_func();
-    char *name_file;
 
     //class fields
     CLIENT *clnt;
@@ -70,6 +68,7 @@ public:
     void update_list();
     void remove_client();
     int ping();
+    void download_file_helper();
 
     static bool compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
     static bool compare_equal(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
@@ -120,6 +119,31 @@ bool Client::compare_equal(const std::pair<int, pair<char *, int> > &lhs,
     return lhs.first == rhs.first;
 }
 
+void Client::download_file_helper() {
+    char **file_to_download;
+    tcp_serv->servRead(client_number, file_to_download);
+//    cout << "File to download: " << *file_to_download << endl;
+    ifstream peer_file(*file_to_download, ifstream::binary);
+    streampos size;
+    char *peer_file_contents;
+    if (peer_file.is_open()) {
+        peer_file.seekg(0, peer_file.end);
+        size = peer_file.tellg();
+        peer_file.seekg(0, peer_file.beg);
+        peer_file_contents = new char[size];
+        peer_file.read(peer_file_contents, size);
+        peer_file.close();
+        peer_file_contents[size] = '\0';
+//        cout << "write: " << peer_file_contents << endl;
+        if (tcp_serv->servWrite(client_number, peer_file_contents, size) != size) {
+            cout << "Unable to transfer full file" << endl;
+        }
+        delete[] peer_file_contents;
+    } else {
+        cout << "Unable to open " << file_to_download << " So can not transfer the file contents" << endl;
+    }
+}
+
 void Client::heartbeat() {
     while(heartbeat_flag) {
         sleep(5);
@@ -135,41 +159,15 @@ void Client::update_thread_func() {
 }
 
 void Client::tcp_thread_func() {
+    tcp_serv->servListen();
     while(tcp_flag){
-        tcp_serv->servListen();
         client_number = tcp_serv->servAccept();
         num_active_clients = tcp_serv->getNumActiveClients();
-        if(download_flag){
-            download_flag = false;
-            ifstream existing_file(name_file);
-            if(existing_file.good()==0){
-                cout << "File already exists" << endl; //not overwriting as not considering consistency issues
-                return;
-            }
-            else {
-                char **file_to_download;
-                tcp_serv->servRead(client_number, file_to_download);
-                ifstream peer_file(*file_to_download);
-                streampos size;
-                char *peer_file_contents;
-                if (peer_file.is_open()) {
-                    size = peer_file.tellg();
-                    peer_file_contents = new char[size];
-                    peer_file.read(peer_file_contents, size);
-                    peer_file.close();
-                    cout << "write: " << peer_file_contents << endl;
-                    if (tcp_serv->servWrite(client_number, peer_file_contents, strlen(peer_file_contents)) != size) {
-                        cout << "Unable to transfer full file" << endl;
-                        delete[] peer_file_contents;
-                        return;
-                    }
-                    delete[] peer_file_contents;
-                } else {
-                    cout << "Unable to open " << name_file << " So can not transfer the file contents" << endl;
-                    return;
-                }
-            }
+        if(strcmp((tcp_serv->download_flag),"true")==0){
+            strcpy(tcp_serv->download_flag, "false");
+            download_file_helper();
         }
+        tcp_serv->servClose(client_number);
     }
 }
 
@@ -213,15 +211,16 @@ int Client::get_load(char * peer_ip, int peer_port) {
         tcp_clnt = new TcpClient(peer_ip,peer_port);
         tcp_clnt->clntOpen();
         tcp_clnt->clntRead(&temp_load);
+        string send_download_flag = "false";
+        tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
         tcp_clnt->clntClose();
-//        tcp_serv->servClose(client_number);
         free(tcp_clnt);
         load = atoi(temp_load);
-        cout << "read load " << load << "\n";
+//        cout << "read load " << load << "\n";
     } else {
         //create self as tcp client and servr does peer operations
         load = num_active_clients;
-        cout << "read self load " << load << "\n";
+//        cout << "read self load " << load << "\n";
     }
     return load;
 }
@@ -235,15 +234,14 @@ void Client::download(char *filename) {
     } else {
         char *dest_ip;
         int dest_port;
-        name_file = filename;
 
         int temp_load;
         map < int, pair < char *, int >>::iterator load_itr = peer_load.begin();
         for (int i = 0; i < peers_with_file->node_list_len; i++) {
             temp_load = get_load((peers_with_file->node_list_val+i)->ip, (peers_with_file->node_list_val+i)->port);
             peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
-                                                                            (temp_load, make_pair((peers_with_file->node_list_val+i)->ip,
-                                                                                                  (peers_with_file->node_list_val+i)->port)));
+                                                (temp_load, make_pair((peers_with_file->node_list_val+i)->ip,
+                                                                      (peers_with_file->node_list_val+i)->port)));
             load_itr++;
         }
         load_itr = min_element(peer_load.begin(), peer_load.end(), this->compare_first);
@@ -267,41 +265,47 @@ void Client::download(char *filename) {
 //        temp_nodename = self_ip;
 //        temp_nodename.append(to_string(self_port));
 
-//        NodeDet *peernode = new NodeDet(temp_nodename);
         dest_ip = load_itr->second.first;
         dest_port = load_itr->second.second;
         char *clnt_file_contents;
         string file_to_download = FS_ROOT;
+        string send_download_flag = "true";
+        file_to_download.append("/");
+        file_to_download.append(filename);
         //if ip and port same as self, i.e. act like a server
         if((strcmp(self_ip,dest_ip)!=0) || (self_port != dest_port)){
             tcp_clnt = new TcpClient(dest_ip,dest_port);
             char *temp;
             tcp_clnt->clntOpen();
             tcp_clnt->clntRead(&temp);
-            cout << "filename: " << name_file << endl;
-            tcp_clnt->clntWrite(filename,strlen(filename));
-            cout << "wrote filename " << endl;
+            tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
+
+            tcp_clnt->clntWrite(file_to_download.c_str(),file_to_download.length());
             tcp_clnt->clntRead(&clnt_file_contents);
+//            cout << "reading contents: " << clnt_file_contents << endl;
+            send_download_flag = "false";
+            tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
             tcp_clnt->clntClose();
-            free(tcp_clnt);
             // create a file and write these contents
-            file_to_download.append("/");
-            file_to_download.append(filename);
+
             ofstream client_file(file_to_download.c_str());
             if(client_file.is_open()){ //if able to open the file
                 client_file << clnt_file_contents ;
+//                cout << "content received: " << clnt_file_contents << endl;
                 client_file.close();
-                cout << "contents: " << clnt_file_contents << endl;
                 //TODO: update list to be called if checksum returned success
                 update_list();
             }
             else{
                 cout << "Unable to create " << filename << endl;
-                return;
             }
-        } else{
-            // open a file and read contents
-            download_flag = true;
+        }
+        else{
+            ifstream fptr(file_to_download);
+//            cout << "name file: " << file_to_download <<endl;
+            if(fptr.good()==0){
+                cout << "File already exists" << endl; //not overwriting as not considering consistency issues
+            }
         }
 
         //TODO: implement latency in sending

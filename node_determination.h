@@ -9,9 +9,8 @@
 #include <vector>
 using namespace std;
 
-class NodeDet {
+struct NodeDet {
     /* Data */
-  public:
     std::string nodename;
     std::string hostname;
     std::string nodenum;

@@ -29,7 +29,7 @@ n = getenv(node_name.c_str());
 
 while(n) {
 
-nodes.push_back(new NodeDet(num));
+nodes.push_back(NodeDet(num));
 i++;
 node_name = "N" + to_string(i);
 n = getenv(node_name.c_str());
@@ -38,7 +38,7 @@ n = getenv(node_name.c_str());
 }
 NodeDet PeerInfo::getNode(int num) const {
 
-return *nodes[num];
+return nodes[num];
 
 }
 
@@ -150,4 +150,11 @@ int PeerInfo::gsize() {
 bool PeerInfo::hasContent() const {
 
   return buf != NULL;
+}
+
+
+int main() {
+PeerInfo(1);
+
+
 }

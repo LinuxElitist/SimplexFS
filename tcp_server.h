@@ -15,7 +15,6 @@ public:
     int servClose(int cli_num);
     int servCloseAll();
     int getNumActiveClients() const;
-    int getNumConns() const;
 
     std::vector<int> newsockfds;
     char *download_flag;

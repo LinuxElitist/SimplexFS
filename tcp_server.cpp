@@ -61,6 +61,7 @@ int TcpServer::servAccept() {
 //        cout << "sending load\n";
         servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
                   std::to_string(getNumActiveClients()).length());
+//        cout << "reading flag\n";
         servRead(cli_num, &download_flag);
     }
     return cli_num;
@@ -119,11 +120,6 @@ int TcpServer::getNumActiveClients() const {
     mtx.unlock();
     return ret;
 }
-
-int TcpServer::getNumConns() const { //gives max_connections allowed
-    return num_conns;
-}
-
 
 void test_TcpServer(int argc, char *argv[]) {
     if (argc < 3) {

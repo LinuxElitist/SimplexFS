@@ -91,6 +91,10 @@ public:
         update_thread = thread(&Client::update_thread_func,this);
         tcp_flag = true;
         tcp_thread = thread(&Client::tcp_thread_func, this);
+
+        tcp_thread.detach();
+        update_thread.detach();
+        heartbeat_thread.detach();
     }
 
     ~Client() {
@@ -160,15 +164,14 @@ void Client::update_thread_func() {
 }
 
 void Client::tcp_thread_func() {
-    tcp_serv->servListen();
     while(tcp_flag){
+        tcp_serv->servListen();
         client_number = tcp_serv->servAccept();
         num_active_clients = tcp_serv->getNumActiveClients();
         if(strcmp((tcp_serv->download_flag),"true")==0){
             strcpy(tcp_serv->download_flag,"false");
             download_file_helper();
         }
-        tcp_serv->servClose(client_number);
     }
 }
 
@@ -215,7 +218,7 @@ int Client::get_load(char * peer_ip, int peer_port) {
         string send_download_flag = "false";
         tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
         tcp_clnt->clntClose();
-        free(tcp_clnt);
+//        free(tcp_clnt);
         load = atoi(temp_load);
 //        cout << "read load " << load << "\n";
     } else {
@@ -248,6 +251,10 @@ void Client::download(char *filename) {
         int min_load = load_itr->first;
 
         //TODO: what if similar loads
+        //calculate checksum of downloaded file
+        //compare with original file and output success if checksum matches
+        //TODO: implement latency in sending
+
 //        map< int, pair < char *, int >>::iterator find_itr;
 //        find_itr = peer_load.find(min_load);
 //        temp_nodename = find_itr->second.first;
@@ -269,7 +276,6 @@ void Client::download(char *filename) {
         dest_port = load_itr->second.second;
         char *clnt_file_contents;
         string file_to_download = FS_ROOT;
-        string send_download_flag = "true";
         file_to_download.append("/");
         file_to_download.append(filename);
         //if ip and port same as self, i.e. act like a server
@@ -278,6 +284,7 @@ void Client::download(char *filename) {
             char *temp;
             tcp_clnt->clntOpen();
             tcp_clnt->clntRead(&temp);
+            string send_download_flag = "true";
             tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
 
             tcp_clnt->clntWrite(file_to_download.c_str(),file_to_download.length());
@@ -306,11 +313,10 @@ void Client::download(char *filename) {
             if(fptr.good()==0){
                 cout << "File already exists" << endl; //not overwriting as not considering consistency issues
             }
+            else{
+                strcpy(tcp_serv->download_flag,"true");
+            }
         }
-
-        //TODO: implement latency in sending
-        //calculate checksum of downloaded file
-        //compare with original file and output success if checksum matches
     }
 }
 

@@ -16,11 +16,11 @@
 #include <map>
 #include <iostream>
 #include "node_determination.h"
+
 using namespace std;
 
 class PeerInfo {
 
-#define BUFFER_SIZE 1024
 public:
     string ip;
     int port;
@@ -28,21 +28,15 @@ public:
     unsigned char *buf;
     int size;
     int num;
-std::vector<NodeDet> nodes;
+    std::vector <NodeDet> nodes;
 
-//using namespace std;
-// string getIp();
-// int getPort();
-// string toString ();
-PeerInfo(int num);
-NodeDet getNode(int num) const;
-int getNumNodes() const;
-PeerInfo(string ip, int port);
-PeerInfo(const std::string &name);
-const unsigned char *content() const;
-int gsize();
-bool hasContent() const;
-//void md5sum(const char * const filename, unsigned char *sum);
+    PeerInfo(int num);
 
+    NodeDet getNode(int num) const;
+
+    int getNumNodes() const;
+
+    PeerInfo(const std::string &name);
 };
+
 #endif //SIMPLEXFS_PEER_INFO_H

@@ -7,10 +7,16 @@
 #include "sxfs.h"
 #include "peer_info.h"
 #include <sstream>
+#include "tcp_communication.h"
+#include "tcp_client.h"
+#include <thread>
+#include <unistd.h>
+
 using namespace std;
 
 static map<pair<string,int>,string> clientList;
 static map<pair<string,int>,string >::iterator it = clientList.begin();
+
 
 void outputClientList() {
 	cout << "outputing server list:" << endl;
@@ -82,12 +88,27 @@ int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
     return &result;
 }
 
-int *
-ping_1_svc(struct svc_req *rqstp) {
-    static int err_code = -1;
 
-    std::cout << "ping received\n";
-    err_code = 0;
-
-    return &err_code;
+void
+ping() {
+	//ping the clients every 5 sec
+	map<pair<string,int>, string >::iterator iter;
+	char temp_ip[MAXIP];
+	int temp_port;
+	while(1){
+		sleep(5);
+		for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+			strcpy(temp_ip,iter->first.first.c_str());
+			temp_port = iter->first.second;
+			TcpClient *ping_clnt = new TcpClient(temp_ip, temp_port);
+			if(ping_clnt->clntOpen() < 0){
+				cout << "Failed to ping " << iter->first.first << ":" << iter->first.second << endl;
+				cout << "removing client from list" << endl;
+				clientList.erase(iter);
+				outputClientList();
+			}
+			ping_clnt->clntClose();
+			free(ping_clnt);
+		}
+	}
 }

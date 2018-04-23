@@ -37,6 +37,9 @@ public:
     int getNumNodes() const;
 
     PeerInfo(const std::string &name);
+
+
 };
+
 
 #endif //SIMPLEXFS_PEER_INFO_H

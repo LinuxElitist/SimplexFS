@@ -63,6 +63,7 @@ public:
     map<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
     TcpClient *tcp_clnt; //create self as tcp client and serv doe peer operations
     TcpServer *tcp_serv;
+    TcpServer *ping_serv;
     unsigned char checksum[MD5_DIGEST_LENGTH];
 
     //class methods
@@ -72,7 +73,6 @@ public:
     void populate_file_list();
     void update_list();
     void remove_client();
-    int ping();
     void md5sum(char *filename, int size);
     void download_file_helper();
 
@@ -90,6 +90,7 @@ public:
         update_list();
         std::cout << ".....Completed client creation.....\n";
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
+        ping_serv = new TcpServer(self_port, 1);
 
         heartbeat_flag = true;
         heartbeat_thread = thread(&Client::heartbeat, this);
@@ -183,9 +184,12 @@ void Client::download_file_helper() {
 }
 
 void Client::heartbeat() {
-    while(heartbeat_flag) {
-        sleep(5);
-        ping();
+    //server pings each client every 5 sec
+    while(heartbeat_flag) { // //TODO: if ping not recvd within 5 sec, => server down
+        ping_serv->servListen();
+        if(ping_serv->servAccept() < 0) {
+            cout << "Did not receive ping from server";
+        }
     }
 }
 
@@ -394,20 +398,6 @@ void Client::remove_client(){
     update_flag = false;
     heartbeat_flag = false;
 }
-
-int Client::ping() {
-    auto output = ping_1(clnt);
-    if (output == NULL) {
-        clnt_perror(clnt, "Cannot ping server");
-        return 1;
-    } //only print to the user if there is failure
-
-    //if peer crashed
-    //TODO: remove client from file_specific_client_list and then call update_list
-    return *output;
-}
-
-//TODO: scenario of a client leaving and then joining back cz we need checksum too
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {

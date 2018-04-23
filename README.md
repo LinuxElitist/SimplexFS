@@ -1,10 +1,9 @@
 # SimplexFS
 Project for Distributed system course
 
-To compile:
+To compile (RPCGEN has already been used to generate files, so that compilation can be ignored):
 ```
 make clean
-make rpc
 make
 ```
 

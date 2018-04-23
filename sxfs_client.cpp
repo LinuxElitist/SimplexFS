@@ -325,10 +325,8 @@ void Client::download(char *filename) {
 
             string ack = "acknowledged";
             tcp_clnt->clntWrite(ack.c_str(), ack.length());
-            cout << "clnt ack: " << ack << endl;
             char *original_checksum;
             tcp_clnt->clntRead(&original_checksum);
-            cout << "orig check: " << original_checksum << endl;
 //            cout << "reading contents: " << clnt_file_contents << endl;
             send_download_flag = "false";
             tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
@@ -357,7 +355,9 @@ void Client::download(char *filename) {
                     update_list();
                 }
                 else {
-                    cout << "Checksum mismatch " << endl;
+                    cout << "Checksum mismatch, deleting the downloaded file. Please re-download " << endl;
+                    if( remove(file_to_download.c_str()) != 0 )
+                        perror( "Error deleting file" );
                 }
             }
             else{

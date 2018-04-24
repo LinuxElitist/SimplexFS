@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 #define MAXIP 21
-#define MAXCLIENTS 3
+#define MAXCLIENTS 4
 #define MAXFILENAME 256
 #define MAXFILES 30
 #define MAXFILELIST 7680

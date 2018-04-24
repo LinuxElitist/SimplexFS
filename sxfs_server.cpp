@@ -5,12 +5,13 @@
  */
 
 #include "sxfs.h"
-#include "peer_info.h"
 #include <sstream>
 #include "tcp_communication.h"
 #include "tcp_client.h"
 #include <thread>
 #include <unistd.h>
+#include <map>
+#include <iostream>
 
 using namespace std;
 

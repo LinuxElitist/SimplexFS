@@ -5,15 +5,10 @@
  */
 
 #include "sxfs.h"
-#include "string.h"
-#include "stdlib.h"
-#include "stdio.h"
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <thread>
 #include <iostream>
 #include <dirent.h>
@@ -23,13 +18,14 @@
 #include "tcp_client.h"
 #include "tcp_server.h"
 #include "tcp_communication.h"
-#include "peer_info.h"
-#include "node_determination.h"
 #include <mutex>
 #include <fstream>
 #include <sstream>
 #include <errno.h>
 #include <openssl/md5.h>
+#include <map>
+#include <vector>
+#include <iterator>
 
 #define FS_ROOT "./5105_node_files"
 
@@ -58,9 +54,10 @@ public:
     int self_port;
     int client_number;
     int num_active_clients;
+    int latency_sim;
     client_file_list self_file_list;
     node_list *peers_with_file;
-    map<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
+    multimap<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
     TcpClient *tcp_clnt; //create self as tcp client and serv doe peer operations
     TcpServer *tcp_serv;
     TcpServer *ping_serv;
@@ -75,9 +72,13 @@ public:
     void remove_client();
     void md5sum(char *filename, int size);
     void download_file_helper();
+    string finding_destinaton_peer(char *filename);
+    void checksum_comparison(string file_to_download, char *original_checksum);
 
     static bool compare_first(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
+    static bool compare_second(const std::pair<string, int > &lhs, const std::pair<string, int > &rhs);
     static bool compare_equal(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
+    std::vector <string> str_split(const std::string &str, char delimiter);
 
     Client(char *ip, char *host, int port) {
         self_ip = ip;
@@ -117,6 +118,8 @@ public:
         }
         if (clnt)
             clnt_destroy(clnt);
+        free(tcp_clnt);
+        free(tcp_serv);
     }
 };
 
@@ -125,62 +128,29 @@ bool Client::compare_first(const std::pair<int, pair<char *, int> > &lhs,
     return lhs.first < rhs.first;
 }
 
+bool Client::compare_second(const std::pair<string, int >  &lhs,
+                           const std::pair<string, int >  &rhs) {
+    return lhs.second < rhs.second;
+}
+
 bool Client::compare_equal(const std::pair<int, pair<char *, int> > &lhs,
                            const std::pair<int, pair<char *, int> > &rhs) {
     return lhs.first == rhs.first;
 }
 
-void Client::md5sum(char *filename, int size) {
-    unsigned char data[size + 1];
-    MD5_CTX ctx;
-    FILE *fp = NULL;
-    size_t bytes;
-
-    fp = fopen(filename, "r");
-    if (!fp) {
-        fprintf(stderr, "fopen error: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    MD5_Init(&ctx);
-    while ((bytes = fread(data, 1, size, fp)) != 0)
-        MD5_Update(&ctx, data, bytes);
-    MD5_Final(checksum, &ctx);
-    fclose(fp);
-}
-
-void Client::download_file_helper() {
-    char *file_to_download;
-    tcp_serv->servRead(client_number, &file_to_download);
-//    cout << "File to download: " << *file_to_download << endl;
-    ifstream peer_file(file_to_download, std::ifstream::in);
-    int size;
-    char *peer_file_contents;
-    if (peer_file.is_open()) {
-        peer_file.seekg(0, peer_file.end);
-        size = peer_file.tellg();
-        peer_file.seekg(0, peer_file.beg);
-        peer_file_contents = new char[size+1];
-        peer_file.read(peer_file_contents, size);
-        peer_file.close();
-        peer_file_contents[size] = '\0';
-//        cout << "write: " << peer_file_contents << endl;
-        if (tcp_serv->servWrite(client_number, peer_file_contents, size+1) != (size+1)) {
-            cout << "Unable to transfer full file" << endl;
+std::vector <string> Client::str_split(const std::string &str, char delimiter) {
+    vector <string> strings;
+    string tmp = "";
+    for (int i = 0; i < str.length(); i++) {
+        if (str[i] == delimiter) {
+             strings.push_back(tmp);
+             tmp = "";
+        } else {
+             tmp = tmp + str[i];
         }
-        delete[] peer_file_contents;
-        //recv acknowledgement that contents transferred
-        char *acknowledgement;
-        tcp_serv->servRead(client_number, &acknowledgement);
-        //send md5 checksum value
-        md5sum(file_to_download, size);
-        std::string orig_checksum(reinterpret_cast<char*>(checksum));
-        if (tcp_serv->servWrite(client_number, orig_checksum.c_str(), MD5_DIGEST_LENGTH) != MD5_DIGEST_LENGTH) {
-            cout << "Unable to transfer checksum" << endl;
-        }
-        tcp_serv->servRead(client_number, &(tcp_serv->download_flag));
-    } else {
-        cout << "Unable to open " << file_to_download << " So can not transfer the file contents" << endl;
     }
+    strings.push_back(tmp);
+    return strings;
 }
 
 void Client::heartbeat() {
@@ -204,12 +174,32 @@ void Client::tcp_thread_func() {
     while(tcp_flag){
         tcp_serv->servListen();
         client_number = tcp_serv->servAccept();
+        cout << client_number << endl;
         num_active_clients = tcp_serv->getNumActiveClients();
         if(strcmp((tcp_serv->download_flag),"true")==0){
             strcpy(tcp_serv->download_flag,"false");
             download_file_helper();
         }
     }
+}
+
+
+void Client::md5sum(char *filename, int size) {
+    unsigned char data[size + 1];
+    MD5_CTX ctx;
+    FILE *fp = NULL;
+    size_t bytes;
+
+    fp = fopen(filename, "r");
+    if (!fp) {
+        fprintf(stderr, "fopen error: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    MD5_Init(&ctx);
+    while ((bytes = fread(data, 1, size, fp)) != 0)
+        MD5_Update(&ctx, data, bytes);
+    MD5_Final(checksum, &ctx);
+    fclose(fp);
 }
 
 void Client::populate_file_list() {
@@ -255,7 +245,6 @@ int Client::get_load(char * peer_ip, int peer_port) {
         string send_download_flag = "false";
         tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
         tcp_clnt->clntClose();
-//        free(tcp_clnt);
         load = atoi(temp_load);
 //        cout << "read load " << load << "\n";
     } else {
@@ -266,65 +255,159 @@ int Client::get_load(char * peer_ip, int peer_port) {
     return load;
 }
 
-void Client::download(char *filename) {
+string Client::finding_destinaton_peer(char *filename) {
     file_find(filename);
-    std::vector<string> minEqualLoad;
-    string temp_nodename= "";
+    std::vector<pair<string, int>> minEqualLoad;
+    string temp_nodename = "";
     if (peers_with_file->node_list_len == 0) {
         cout << "File does not exist" << endl;
+        return "0";
     } else {
-        char *dest_ip;
-        int dest_port;
         int temp_load;
-        map < int, pair < char *, int >>::iterator load_itr = peer_load.begin();
+        map<int, pair<char *, int >>::iterator load_itr = peer_load.begin();
         for (int i = 0; i < peers_with_file->node_list_len; i++) {
-            temp_load = get_load((peers_with_file->node_list_val+i)->ip, (peers_with_file->node_list_val+i)->port);
-            peer_load.insert(load_itr, std::pair < int, pair < char * , int >>
-                                                (temp_load, make_pair((peers_with_file->node_list_val+i)->ip,
-                                                                      (peers_with_file->node_list_val+i)->port)));
+            temp_load = get_load((peers_with_file->node_list_val + i)->ip, (peers_with_file->node_list_val + i)->port);
+            peer_load.insert(load_itr, std::pair<int, pair<char *, int >>
+                    (temp_load, make_pair((peers_with_file->node_list_val + i)->ip,
+                                          (peers_with_file->node_list_val + i)->port)));
             load_itr++;
         }
         load_itr = min_element(peer_load.begin(), peer_load.end(), this->compare_first);
         int min_load = load_itr->first;
 
-        //TODO: what if similar loads
-        //calculate checksum of downloaded file
-        //compare with original file and output success if checksum matches
-        //TODO: implement latency in sending
+        //if similar loads
+        multimap<int, pair<char *, int >>::iterator find_itr;
+        typedef multimap<int, pair<char *, int>>::iterator MMAPIterator;
+        std::pair<MMAPIterator, MMAPIterator> result = peer_load.equal_range(min_load);
+        std::cout << "All values for key 'equal load' are," << std::endl;
+        for (MMAPIterator it = result.first; it != result.second; it++) {
+            std::cout << it->second.first << ":" << it->second.second << std::endl;
+            minEqualLoad.push_back(make_pair(it->second.first, it->second.second));
+        }
 
-        map< int, pair < char *, int >>::iterator find_itr;
-        find_itr = peer_load.find(min_load);
-        temp_nodename = find_itr->second.first;
-        temp_nodename.append(to_string(find_itr->second.second));
-        minEqualLoad.push_back(temp_nodename);
-        find_itr++;
-        while(find_itr != peer_load.end()) {
-            if (find_itr == peer_load.find(min_load)){
-                temp_nodename = find_itr->second.first;
-                temp_nodename.append(to_string(find_itr->second.second));
-                minEqualLoad.push_back(temp_nodename);
-                find_itr++;
+        //adding hostnames to  env variables so that latency relation can be established
+        for (int i = 1; i < minEqualLoad.size(); i++) {
+            string node_name = "N";
+            node_name.append(to_string(i));
+            string node_name_value = "";
+            node_name_value.append(minEqualLoad[i].first).append(":").append(to_string(minEqualLoad[i].second));
+            setenv(node_name.c_str(), node_name_value.c_str(), 1);
+        }
+        //adding self as N0 in env var
+        string node_name = "N0";
+        string node_name_value = "";
+        node_name_value.append(self_ip).append(":").append(to_string(self_port));
+        setenv(node_name.c_str(), node_name_value.c_str(), 1);
+
+        //TODO: implement latency in sending
+        char latency_relation[255];
+        map<std::string, int> latencies;
+        char relainfo[MAXFILENAME];
+        map<std::string, int>::iterator lat_itr = latencies.begin();
+        int lat;
+        string left, right;
+        for (int i = 1; i <= minEqualLoad.size(); i++) {
+            string peername = "N";
+            peername.append(to_string(i));
+            snprintf(relainfo, MAXFILENAME, "REL%d", i - 1);
+            strcpy(latency_relation, getenv(relainfo));
+            vector<string> rel_info = str_split(latency_relation, ',');
+            left = rel_info[0];
+            right = rel_info[1];
+            lat = atoi(rel_info[2].c_str());
+            if ((strcmp(left.c_str(), "N0") == 0) && (strcmp(right.c_str(), peername.c_str()) == 0)) {
+                latencies.insert(lat_itr, std::pair<string, int>(right, lat));
+                lat_itr++;
+                continue;
             }
         }
-//        temp_nodename = self_ip;
-//        temp_nodename.append(to_string(self_port));
+        lat_itr = min_element(latencies.begin(), latencies.end(), this->compare_second);
+        string peer_details = lat_itr->first;
+        latency_sim = lat_itr->second;
+        return peer_details;
+    }
+}
 
-        dest_ip = load_itr->second.first;
-        dest_port = load_itr->second.second;
+void Client::download_file_helper() {
+    char *file_to_download;
+    tcp_serv->servRead(client_number, &file_to_download);
+//    cout << "File to download: " << *file_to_download << endl;
+    ifstream peer_file(file_to_download, std::ifstream::in);
+    int size;
+    char *peer_file_contents;
+    if (peer_file.is_open()) {
+        peer_file.seekg(0, peer_file.end);
+        size = peer_file.tellg();
+        peer_file.seekg(0, peer_file.beg);
+        peer_file_contents = new char[size+1];
+        peer_file.read(peer_file_contents, size);
+        peer_file.close();
+        peer_file_contents[size] = '\0';
+//        cout << "write: " << peer_file_contents << endl;
+        if (tcp_serv->servWrite(client_number, peer_file_contents, size+1) != (size+1)) {
+            cout << "Unable to transfer full file" << endl;
+        }
+        delete[] peer_file_contents;
+        //recv acknowledgement that contents transferred
+        char *acknowledgement;
+        tcp_serv->servRead(client_number, &acknowledgement);
+        //send md5 checksum value
+        md5sum(file_to_download, size);
+        std::string orig_checksum(reinterpret_cast<char*>(checksum));
+        if (tcp_serv->servWrite(client_number, orig_checksum.c_str(), MD5_DIGEST_LENGTH) != MD5_DIGEST_LENGTH) {
+            cout << "Unable to transfer checksum" << endl;
+        }
+        tcp_serv->servRead(client_number, &(tcp_serv->download_flag));
+    } else {
+        cout << "Unable to open " << file_to_download << " So can not transfer the file contents" << endl;
+    }
+}
+
+void Client::checksum_comparison(string file_to_download, char *original_checksum){
+    char name[MAXFILENAME];
+    strcpy(name, file_to_download.c_str());
+    int size;
+    ifstream downloaded_file(file_to_download, std::ofstream::in);
+    if (downloaded_file.is_open()) {
+        downloaded_file.seekg(0, downloaded_file.end);
+        size = downloaded_file.tellg();
+        downloaded_file.seekg(0, downloaded_file.beg);
+        downloaded_file.close();
+    }
+    md5sum(name, size);
+    std::string new_checksum(reinterpret_cast<char *>(checksum));
+    if (strcmp(original_checksum, new_checksum.c_str()) == 0) {
+        update_list();
+    } else {
+        cout << "Checksum mismatch, deleting the downloaded file. Please re-download " << endl;
+        if (remove(name) != 0)
+            perror("Error deleting file");
+    }
+}
+
+void Client::download(char *filename) {
+    string peer_details = finding_destinaton_peer(filename);
+    if(strcmp(peer_details.c_str(),"0") != 0) {
+        char *peervalue = getenv(peer_details.c_str());
+        vector<string> peernodeinfo = str_split(peervalue, ':');
+        char dest_ip[MAXIP];
+        strcpy(dest_ip, peernodeinfo[0].c_str());
+        int dest_port = stoi(peernodeinfo[1]);
+//    cout << "dest: " << dest_ip << ":" <<dest_port << endl;
         char *clnt_file_contents;
         string file_to_download = FS_ROOT;
         file_to_download.append("/");
         file_to_download.append(filename);
         //if ip and port same as self, i.e. act like a server
-        if((strcmp(self_ip,dest_ip)!=0) || (self_port != dest_port)){
-            tcp_clnt = new TcpClient(dest_ip,dest_port);
+        if ((strcmp(self_ip, dest_ip) != 0) || (self_port != dest_port)) {
+            tcp_clnt = new TcpClient(dest_ip, dest_port);
             char *temp;
             tcp_clnt->clntOpen();
             tcp_clnt->clntRead(&temp);
             string send_download_flag = "true";
-            tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
+            tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
 
-            tcp_clnt->clntWrite(file_to_download.c_str(),file_to_download.length());
+            tcp_clnt->clntWrite(file_to_download.c_str(), file_to_download.length());
             tcp_clnt->clntRead(&clnt_file_contents);
 
             string ack = "acknowledged";
@@ -333,52 +416,31 @@ void Client::download(char *filename) {
             tcp_clnt->clntRead(&original_checksum);
 //            cout << "reading contents: " << clnt_file_contents << endl;
             send_download_flag = "false";
-            tcp_clnt->clntWrite(send_download_flag.c_str(),send_download_flag.length());
+            tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
             tcp_clnt->clntClose();
             // create a file and write these contents
 
             ofstream client_file(file_to_download.c_str(), std::ofstream::out);
-            if(client_file.is_open()){ //if able to open the file
-                client_file << clnt_file_contents ;
+            if (client_file.is_open()) { //if able to open the file
+                client_file << clnt_file_contents;
 //                cout << "content received: " << clnt_file_contents << endl;
                 client_file.close();
                 //update list if checksum returned success
-                char name[MAXFILENAME];
-                int size;
-                strcpy(name,file_to_download.c_str());
-                ifstream downloaded_file(file_to_download.c_str(), std::ofstream::in);
-                if (downloaded_file.is_open()) {
-                    downloaded_file.seekg(0, downloaded_file.end);
-                    size = downloaded_file.tellg();
-                    downloaded_file.seekg(0, downloaded_file.beg);
-                    downloaded_file.close();
-                }
-                md5sum(name, size);
-                std::string new_checksum(reinterpret_cast<char*>(checksum));
-                if(strcmp(original_checksum, new_checksum.c_str()) == 0){
-                    update_list();
-                }
-                else {
-                    cout << "Checksum mismatch, deleting the downloaded file. Please re-download " << endl;
-                    if( remove(file_to_download.c_str()) != 0 )
-                        perror( "Error deleting file" );
-                }
-            }
-            else{
+                checksum_comparison(file_to_download, original_checksum);
+            } else {
                 cout << "Unable to create " << filename << endl;
             }
-        }
-        else{
+        } else {
             ifstream fptr(file_to_download.c_str(), std::ifstream::in);
 //            cout << "name file: " << file_to_download <<endl;
-            if(fptr.good()==0){
+            if (fptr.good() == 0) {
                 cout << "File already exists" << endl; //not overwriting as not considering consistency issues
-            }
-            else{
-                strcpy(tcp_serv->download_flag,"true");
+            } else {
+                strcpy(tcp_serv->download_flag, "true");
             }
         }
     }
+
 }
 
 void Client::update_list() {

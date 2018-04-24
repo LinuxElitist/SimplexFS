@@ -1,7 +1,3 @@
-//
-// Created by sandeep on 3/23/18.
-//
-
 #pragma once
 #include <vector>
 #include <mutex>
@@ -14,22 +10,20 @@ public:
     ~TcpServer();
     int servListen();
     int servAccept();
+    int servAcceptAndSendLoad();
     int servRead(int cli_num, char **buffer);
     int servWrite(int cli_num, const char *msg, int msg_size);
     int servClose(int cli_num);
     int servCloseAll();
     int getNumActiveClients() const;
-    int getNumConns() const;
 
     std::vector<int> newsockfds;
-
-private:
+    char *download_flag;
+    int sockfd;
     int num_conns;
-    int sockfd, portno;
+    int portno;
     sockaddr_in serv_addr, cli_addr;
     socklen_t clilen;
 
     mutable std::mutex mtx;
 };
-
-

@@ -5,18 +5,26 @@
  */
 
 #include "sxfs.h"
-#include "peer_info.h"
 #include <sstream>
+#include "tcp_communication.h"
+#include "tcp_client.h"
+#include "tcp_server.h"
+#include <thread>
+#include <unistd.h>
+#include <map>
+#include <iostream>
+
 using namespace std;
 
-static map<pair<string,int>,string> clientList;
-static map<pair<string,int>,string >::iterator it = clientList.begin();
+static map<pair<string,int>,pair<string,int>> clientList;
+static map<pair<string,int>,pair<string,int>>::iterator it = clientList.begin();
+
 
 void outputClientList() {
 	cout << "outputing server list:" << endl;
-	map<pair<string,int>, string >::iterator iter;
+	map<pair<string,int>, pair<string,int> >::iterator iter;
 	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
-		cout << iter->first.first << ":" << iter->first.second << " : " << iter->second.c_str() << endl;
+		cout << iter->first.first << ":" << iter->first.second << " : " << iter->second.first.c_str() << ":" << iter->second.second << endl;
 	}
 }
 
@@ -29,10 +37,10 @@ node_list *file_find_1_svc(char *arg1,  struct svc_req *rqstp) {
 	int len = 0;
     strcat(arg1, " "); //appending a space so it actually searches for entire word and not any substring in filename
     cout << "node list is: \n";
-	map<pair<string,int>, string >::iterator iter;
+	map<pair<string,int>, pair<string,int> >::iterator iter;
  	for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
-		f_list = new char[(iter->second).length() +1];
-		strcpy(f_list,iter->second.c_str());
+		f_list = new char[(iter->second.first).length() +1];
+		strcpy(f_list,iter->second.first.c_str());
 		string remaining_list(f_list, strlen(f_list));
 		pos = remaining_list.find(arg1);
 		if(pos >= 0){
@@ -50,16 +58,20 @@ node_list *file_find_1_svc(char *arg1,  struct svc_req *rqstp) {
 	return &result;
 }
 
-int *update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req *rqstp) {
+int *update_list_1_svc(IP arg1, int arg2, client_file_list arg3, int arg4, struct svc_req *rqstp) {
 	static int  result = -1;
 	stringstream self_file_list;
 	self_file_list << arg3;
-	map<pair<string,int>,string >::iterator find_itr;
+	map<pair<string,int>,pair<string,int> >::iterator find_itr;
 	find_itr = clientList.find(make_pair(arg1,arg2));
 	//add client to client list only if previously not existing
 	if(find_itr == clientList.end()) {
-		clientList.insert (it, std::pair<pair<string,int>,string >(make_pair(arg1,arg2), self_file_list.str()));
+		clientList.insert (it, std::pair<pair<string,int>,pair<string,int> >(make_pair(arg1,arg2), make_pair(self_file_list.str(),arg4)));
 		it++;
+	}
+	else{
+		find_itr->second.first = self_file_list.str();
+		find_itr->second.second = arg4;
 	}
 	outputClientList();
 	result = 0;
@@ -69,7 +81,7 @@ int *update_list_1_svc(IP arg1, int arg2, client_file_list arg3, struct svc_req 
 int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
     static int  result = -1;
     //removal of client from list when it fails
-    map<pair<string,int>,string >::iterator find_itr;
+    map<pair<string,int>,pair<string,int> >::iterator find_itr;
     find_itr = clientList.find(make_pair(arg1,arg2));
     if(find_itr != clientList.end()) {
         clientList.erase(find_itr);
@@ -79,12 +91,46 @@ int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
     return &result;
 }
 
-int *
-ping_1_svc(struct svc_req *rqstp) {
-    static int err_code = -1;
 
-    std::cout << "ping received\n";
-    err_code = 0;
+void
+ping() {
+	//ping the clients every 5 sec
+	map<pair<string,int>, pair<string,int> >::iterator iter;
+	char temp_ip[MAXIP];
+	int temp_port;
+	while(1){
+		sleep(5);
+		for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+			strcpy(temp_ip,iter->first.first.c_str());
+			temp_port = iter->second.second;
+			TcpClient *ping_clnt = new TcpClient(temp_ip, temp_port);
+			if(ping_clnt->clntOpen() < 0){
+				cout << "Failed to ping " << iter->first.first << ":" << iter->second.second << endl;
+				cout << "removing client from list" << endl;
+				clientList.erase(iter);
+				outputClientList();
+			}
+			ping_clnt->clntClose();
+			free(ping_clnt);
+		}
+	}
+}
 
-    return &err_code;
+void s_fault_check(int server_port){
+    map<pair<string,int>, pair<string,int> >::iterator iter;
+    TcpServer *fault_check_serv = new TcpServer(server_port,MAXCLIENTS);
+	int cli_num;
+    char *msg;
+    fault_check_serv->servListen();
+    while(1){
+        for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
+            cli_num = fault_check_serv->servAccept();
+            if (cli_num < 0) {
+                cout << "server fault check tcp server could not accept connection" << endl;
+            } else {
+                //    fault_check_serv->servRead(cli_num, &msg);
+                cout << "accepted \n";
+            }
+        }
+	}
 }

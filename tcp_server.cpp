@@ -1,7 +1,3 @@
-//
-// Created by sandeep on 3/23/18.
-//
-
 #include "tcp_server.h"
 #include "tcp_communication.h"
 #include <cstdio>
@@ -11,7 +7,7 @@
 #include <netinet/in.h>
 #include <iostream>
 #include <stdlib.h>
-
+#include <time.h>
 
 
 using namespace std;
@@ -24,6 +20,14 @@ TcpServer::TcpServer(int port, int num_conns)
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
+    int enable = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+//    struct timeval tv;
+//    tv.tv_sec = 10;
+//    tv.tv_usec = 0;
+//    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+//        perror("Error");
+//    }
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) > 0) {
         cout << "Error binding socket\n";
     }
@@ -49,6 +53,8 @@ int TcpServer::servAccept() {
     if (newsockfd < 0) {
         cout << "Error accepting new socket\n";
     }
+    else
+        cout << "Accepting connection\n";
     int cli_num = -1;
     mtx.lock();
     for (size_t i = 0; i < newsockfds.size(); i++) {
@@ -59,14 +65,19 @@ int TcpServer::servAccept() {
         }
     }
     mtx.unlock();
-    cout << "Accepting connection\n";
+    return cli_num;
+}
 
+int TcpServer::servAcceptAndSendLoad() {
+    int cli_num = servAccept();
+    strcpy(download_flag, "false");
     if(cli_num >= 0){
-        cout << "sending load\n";
+//        cout << "sending load\n";
         servWrite(cli_num, std::to_string(getNumActiveClients()).c_str(),
-                                  std::to_string(getNumActiveClients()).length());
+                  std::to_string(getNumActiveClients()).length());
+//        cout << "reading flag\n";
+        servRead(cli_num, &download_flag);
     }
-
     return cli_num;
 }
 
@@ -124,11 +135,6 @@ int TcpServer::getNumActiveClients() const {
     return ret;
 }
 
-int TcpServer::getNumConns() const { //gives max_connections allowed
-    return num_conns;
-}
-
-
 void test_TcpServer(int argc, char *argv[]) {
     if (argc < 3) {
         std::cout << "Usage: ./TcpServerside port max_connections \n";
@@ -152,4 +158,3 @@ void test_TcpServer(int argc, char *argv[]) {
         cout << "#activeClients " << serv.getNumActiveClients() << "\n";
     }
 }
-

@@ -22,7 +22,7 @@ typedef client_details client_list<MAXCLIENTS>;
 program SIMPLE_XFS {
     version SIMPLE_VERSION {
         node_list FILE_FIND(string) = 1;
-        int UPDATE_LIST(IP, int, client_file_list) = 2;
+        int UPDATE_LIST(IP, int, client_file_list, int) = 2;
         int REMOVE_CLIENT(IP, int) = 3;
     } = 1 ;
 } = 0x22221122;

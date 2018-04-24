@@ -51,6 +51,7 @@ struct update_list_1_argument {
 	IP arg1;
 	int arg2;
 	client_file_list arg3;
+	int arg4;
 };
 typedef struct update_list_1_argument update_list_1_argument;
 
@@ -68,8 +69,8 @@ typedef struct remove_client_1_argument remove_client_1_argument;
 extern  node_list * file_find_1(char *, CLIENT *);
 extern  node_list * file_find_1_svc(char *, struct svc_req *);
 #define UPDATE_LIST 2
-extern  int * update_list_1(IP , int , client_file_list , CLIENT *);
-extern  int * update_list_1_svc(IP , int , client_file_list , struct svc_req *);
+extern  int * update_list_1(IP , int , client_file_list , int , CLIENT *);
+extern  int * update_list_1_svc(IP , int , client_file_list , int , struct svc_req *);
 #define REMOVE_CLIENT 3
 extern  int * remove_client_1(IP , int , CLIENT *);
 extern  int * remove_client_1_svc(IP , int , struct svc_req *);

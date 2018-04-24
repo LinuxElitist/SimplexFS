@@ -80,6 +80,8 @@ xdr_update_list_1_argument (XDR *xdrs, update_list_1_argument *objp)
 		 return FALSE;
 	 if (!xdr_client_file_list (xdrs, &objp->arg3))
 		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->arg4))
+		 return FALSE;
 	return TRUE;
 }
 

@@ -18,11 +18,9 @@ public:
 
     std::vector<int> newsockfds;
     char *download_flag;
-
-
-private:
+    int sockfd;
     int num_conns;
-    int sockfd, portno;
+    int portno;
     sockaddr_in serv_addr, cli_addr;
     socklen_t clilen;
 

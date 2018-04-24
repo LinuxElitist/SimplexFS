@@ -25,7 +25,7 @@ file_find_1(char *arg1,  CLIENT *clnt)
 }
 
 int *
-update_list_1(IP arg1, int arg2, client_file_list arg3,  CLIENT *clnt)
+update_list_1(IP arg1, int arg2, client_file_list arg3, int arg4,  CLIENT *clnt)
 {
 	update_list_1_argument arg;
 	static int clnt_res;
@@ -34,6 +34,7 @@ update_list_1(IP arg1, int arg2, client_file_list arg3,  CLIENT *clnt)
 	arg.arg1 = arg1;
 	arg.arg2 = arg2;
 	arg.arg3 = arg3;
+	arg.arg4 = arg4;
 	if (clnt_call (clnt, UPDATE_LIST, (xdrproc_t) xdr_update_list_1_argument, (caddr_t) &arg,
 		(xdrproc_t) xdr_int, (caddr_t) &clnt_res,
 		TIMEOUT) != RPC_SUCCESS) {

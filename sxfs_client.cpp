@@ -52,6 +52,7 @@ public:
     CLIENT *clnt;
     char *self_ip;
     int self_port;
+    int ping_port;
     int client_number;
     int num_active_clients;
     int latency_sim;
@@ -80,9 +81,10 @@ public:
     static bool compare_equal(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
     std::vector <string> str_split(const std::string &str, char delimiter);
 
-    Client(char *ip, char *host, int port) {
+    Client(char *ip, char *host, int port, int p_port) {
         self_ip = ip;
         self_port = port;
+        ping_port = p_port;
         clnt = clnt_create(host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
         if (clnt == NULL) {
             clnt_pcreateerror(host);
@@ -91,7 +93,7 @@ public:
         update_list();
         std::cout << ".....Completed client creation.....\n";
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
-        ping_serv = new TcpServer(self_port, 1);
+        ping_serv = new TcpServer(ping_port, 1);
 
         heartbeat_flag = true;
         heartbeat_thread = thread(&Client::heartbeat, this);
@@ -155,10 +157,12 @@ std::vector <string> Client::str_split(const std::string &str, char delimiter) {
 
 void Client::heartbeat() {
     //server pings each client every 5 sec
+    ping_serv->servListen();
     while(heartbeat_flag) { // //TODO: if ping not recvd within 5 sec, => server down
-        ping_serv->servListen();
-        if(ping_serv->servAccept() < 0) {
-            cout << "Did not receive ping from server";
+        socklen_t clilen = sizeof(ping_serv->cli_addr);
+        int newsockfd = accept(ping_serv->sockfd, (struct sockaddr *) &(ping_serv->cli_addr), &clilen);
+        if (newsockfd < 0) {
+            cout << "Did not receive ping from server\n";
         }
     }
 }
@@ -174,7 +178,7 @@ void Client::tcp_thread_func() {
     while(tcp_flag){
         tcp_serv->servListen();
         client_number = tcp_serv->servAccept();
-        cout << client_number << endl;
+//        cout << client_number << endl;
         num_active_clients = tcp_serv->getNumActiveClients();
         if(strcmp((tcp_serv->download_flag),"true")==0){
             strcpy(tcp_serv->download_flag,"false");
@@ -286,18 +290,13 @@ string Client::finding_destinaton_peer(char *filename) {
         }
 
         //adding hostnames to  env variables so that latency relation can be established
-        for (int i = 1; i < minEqualLoad.size(); i++) {
+        for (int i = 0; i < minEqualLoad.size(); i++) {
             string node_name = "N";
             node_name.append(to_string(i));
             string node_name_value = "";
             node_name_value.append(minEqualLoad[i].first).append(":").append(to_string(minEqualLoad[i].second));
             setenv(node_name.c_str(), node_name_value.c_str(), 1);
         }
-        //adding self as N0 in env var
-        string node_name = "N0";
-        string node_name_value = "";
-        node_name_value.append(self_ip).append(":").append(to_string(self_port));
-        setenv(node_name.c_str(), node_name_value.c_str(), 1);
 
         //TODO: implement latency in sending
         char latency_relation[255];
@@ -306,19 +305,21 @@ string Client::finding_destinaton_peer(char *filename) {
         map<std::string, int>::iterator lat_itr = latencies.begin();
         int lat;
         string left, right;
-        for (int i = 1; i <= minEqualLoad.size(); i++) {
+        for (int i = 0; i <= minEqualLoad.size(); i++) {
             string peername = "N";
             peername.append(to_string(i));
-            snprintf(relainfo, MAXFILENAME, "REL%d", i - 1);
+            snprintf(relainfo, MAXFILENAME, "REL%d", i);
             strcpy(latency_relation, getenv(relainfo));
             vector<string> rel_info = str_split(latency_relation, ',');
             left = rel_info[0];
             right = rel_info[1];
             lat = atoi(rel_info[2].c_str());
-            if ((strcmp(left.c_str(), "N0") == 0) && (strcmp(right.c_str(), peername.c_str()) == 0)) {
-                latencies.insert(lat_itr, std::pair<string, int>(right, lat));
-                lat_itr++;
-                continue;
+            if ((strcmp(left.c_str(), "N0") == 0)) {
+                if(strcmp(right.c_str(), peername.c_str()) == 0) {
+                    latencies.insert(lat_itr, std::pair<string, int>(right, lat));
+                    lat_itr++;
+                    continue;
+                }
             }
         }
         lat_itr = min_element(latencies.begin(), latencies.end(), this->compare_second);
@@ -354,6 +355,7 @@ void Client::download_file_helper() {
         //send md5 checksum value
         md5sum(file_to_download, size);
         std::string orig_checksum(reinterpret_cast<char*>(checksum));
+        cout << "serv check: " << orig_checksum << endl;
         if (tcp_serv->servWrite(client_number, orig_checksum.c_str(), MD5_DIGEST_LENGTH) != MD5_DIGEST_LENGTH) {
             cout << "Unable to transfer checksum" << endl;
         }
@@ -376,6 +378,7 @@ void Client::checksum_comparison(string file_to_download, char *original_checksu
     }
     md5sum(name, size);
     std::string new_checksum(reinterpret_cast<char *>(checksum));
+    cout << "new check: " << new_checksum << endl;
     if (strcmp(original_checksum, new_checksum.c_str()) == 0) {
         update_list();
     } else {
@@ -414,7 +417,7 @@ void Client::download(char *filename) {
             tcp_clnt->clntWrite(ack.c_str(), ack.length());
             char *original_checksum;
             tcp_clnt->clntRead(&original_checksum);
-//            cout << "reading contents: " << clnt_file_contents << endl;
+            cout << "original_checksum: " << original_checksum << endl;
             send_download_flag = "false";
             tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
             tcp_clnt->clntClose();
@@ -445,7 +448,7 @@ void Client::download(char *filename) {
 
 void Client::update_list() {
     populate_file_list();
-    auto result_4 = update_list_1(self_ip, self_port, self_file_list, clnt);
+    auto result_4 = update_list_1(self_ip, self_port, self_file_list, ping_port, clnt);
     if (*result_4 == -1) {
         clnt_perror(clnt, "call failed");
     }
@@ -462,15 +465,16 @@ void Client::remove_client(){
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 4) {
-        std::cout << "Usage: ./clientside client_ip server_ip client_port\n";
+    if (argc < 5) {
+        std::cout << "Usage: ./clientside client_ip server_ip client_port ping_port\n";
         exit(1);
     }
     char *client_ip = (char *) argv[1];
     char *serv_ip = (char *) argv[2];
     int self_port = stoi(argv[3]);
+    int ping_port = stoi(argv[4]);
 
-    Client conn(client_ip, serv_ip, self_port);
+    Client conn(client_ip, serv_ip, self_port, ping_port);
     char func[1];
     int func_number;
     char search_filename[MAXFILENAME];

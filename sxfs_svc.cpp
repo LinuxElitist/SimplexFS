@@ -26,7 +26,7 @@ _file_find_1 (char * *argp, struct svc_req *rqstp)
 static int *
 _update_list_1 (update_list_1_argument *argp, struct svc_req *rqstp)
 {
-	return (update_list_1_svc(argp->arg1, argp->arg2, argp->arg3, rqstp));
+	return (update_list_1_svc(argp->arg1, argp->arg2, argp->arg3, argp->arg4, rqstp));
 }
 
 static int *
@@ -119,7 +119,6 @@ main (int argc, char **argv)
 
 	std::thread ping_thread = std::thread(ping);
 	ping_thread.detach();
-
 	svc_run ();
 	fprintf (stderr, "%s", "svc_run returned");
 	exit (1);

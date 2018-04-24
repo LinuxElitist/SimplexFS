@@ -41,18 +41,23 @@ public:
     std::thread tcp_thread;
     std::thread heartbeat_thread;
     std::thread update_thread;
+    std::thread fault_check_thread;
     bool update_flag = false;
     bool heartbeat_flag = false;
     bool tcp_flag = false;
+    bool fault_check_flag = false;
     void update_thread_func();
     void heartbeat();
     void tcp_thread_func();
+    void fault_check_func();
 
     //class fields
     CLIENT *clnt;
     char *self_ip;
+    char *server_ip;
     int self_port;
     int ping_port;
+    int server_port;
     int client_number;
     int num_active_clients;
     int latency_sim;
@@ -60,6 +65,7 @@ public:
     node_list *peers_with_file;
     multimap<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
     TcpClient *tcp_clnt; //create self as tcp client and serv doe peer operations
+    TcpClient *s_fault_check_clnt;
     TcpServer *tcp_serv;
     TcpServer *ping_serv;
     unsigned char checksum[MD5_DIGEST_LENGTH];
@@ -81,19 +87,22 @@ public:
     static bool compare_equal(const std::pair<int, pair<char *, int> > &lhs, const std::pair<int, pair<char *, int> > &rhs);
     std::vector <string> str_split(const std::string &str, char delimiter);
 
-    Client(char *ip, char *host, int port, int p_port) {
+    Client(char *ip, char *host, int port, int p_port, int s_port) {
         self_ip = ip;
+        server_ip = host;
         self_port = port;
         ping_port = p_port;
-        clnt = clnt_create(host, SIMPLE_XFS, SIMPLE_VERSION, "udp");
+        server_port = s_port;
+        clnt = clnt_create(server_ip, SIMPLE_XFS, SIMPLE_VERSION, "udp");
         if (clnt == NULL) {
-            clnt_pcreateerror(host);
+            clnt_pcreateerror(server_ip);
             exit(1);
         }
         update_list();
         std::cout << ".....Completed client creation.....\n";
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
         ping_serv = new TcpServer(ping_port, 1);
+        s_fault_check_clnt = new TcpClient(server_ip,server_port);
 
         heartbeat_flag = true;
         heartbeat_thread = thread(&Client::heartbeat, this);
@@ -101,7 +110,10 @@ public:
         update_thread = thread(&Client::update_thread_func,this);
         tcp_flag = true;
         tcp_thread = thread(&Client::tcp_thread_func, this);
+        fault_check_flag = true;
+        fault_check_thread = thread(&Client::fault_check_func, this);
 
+        fault_check_thread.detach();
         tcp_thread.detach();
         update_thread.detach();
         heartbeat_thread.detach();
@@ -109,6 +121,9 @@ public:
 
     ~Client() {
         remove_client();
+        if (fault_check_thread.joinable()) {
+            fault_check_thread.join();
+        }
         if (tcp_thread.joinable()) {
             tcp_thread.join();
         }
@@ -158,14 +173,42 @@ std::vector <string> Client::str_split(const std::string &str, char delimiter) {
 void Client::heartbeat() {
     //server pings each client every 5 sec
     ping_serv->servListen();
-    while(heartbeat_flag) { // //TODO: if ping not recvd within 5 sec, => server down
-        socklen_t clilen = sizeof(ping_serv->cli_addr);
-        int newsockfd = accept(ping_serv->sockfd, (struct sockaddr *) &(ping_serv->cli_addr), &clilen);
+    socklen_t clilen;
+    int newsockfd;
+    while(heartbeat_flag) {
+        clilen = sizeof(ping_serv->cli_addr);
+        newsockfd = accept(ping_serv->sockfd, (struct sockaddr *) &(ping_serv->cli_addr), &clilen);
         if (newsockfd < 0) {
             cout << "Did not receive ping from server\n";
         }
     }
 }
+
+void Client::fault_check_func() {
+    //ping server every 5 sec
+    while(fault_check_flag) { // //TODO: if ping not recvd within 5 sec, => server down
+        if(s_fault_check_clnt->clntOpen() < 0){
+            cout << "Could not connnect to server\n"; //destroy rpc clnt
+            if (clnt)
+                clnt_destroy(clnt);
+        } else {
+            s_fault_check_clnt->clntClose();
+            //checking if clnt (RPC clnt) was destroyed, i.e. if server was initially in crashed state
+            if(clnt == NULL){
+                //recreate rpc clnt and connect to server and update list
+                clnt = clnt_create(server_ip, SIMPLE_XFS, SIMPLE_VERSION, "udp");
+                if (clnt == NULL) {
+                    clnt_pcreateerror(server_ip);
+                    exit(1);
+                }
+                update_list();
+            }
+        }
+        sleep(5);
+    }
+}
+
+
 
 void Client::update_thread_func() {
     while(update_flag) {
@@ -463,16 +506,17 @@ void Client::remove_client(){
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 5) {
-        std::cout << "Usage: ./clientside client_ip server_ip client_port ping_port\n";
+    if (argc < 6) {
+        std::cout << "Usage: ./clientside client_ip server_ip client_port ping_port server_port\n";
         exit(1);
     }
     char *client_ip = (char *) argv[1];
     char *serv_ip = (char *) argv[2];
     int self_port = stoi(argv[3]);
     int ping_port = stoi(argv[4]);
+    int server_port = stoi(argv[5]);
 
-    Client conn(client_ip, serv_ip, self_port, ping_port);
+    Client conn(client_ip, serv_ip, self_port, ping_port, server_port);
     char func[1];
     int func_number;
     char search_filename[MAXFILENAME];

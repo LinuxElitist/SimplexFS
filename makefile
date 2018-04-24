@@ -7,7 +7,7 @@ SVC=sxfs_svc.cpp
 CLI=sxfs_clnt.cpp
 XDR=sxfs_xdr.cpp
 
-SVC_SRC= $(XDR) $(SVC) sxfs_server.cpp tcp_client.cpp tcp_communication.cpp
+SVC_SRC= $(XDR) $(SVC) sxfs_server.cpp tcp_client.cpp tcp_server.cpp tcp_communication.cpp
 CLI_SRC=$(XDR) $(CLI) sxfs_client.cpp tcp_client.cpp tcp_server.cpp tcp_communication.cpp
 
 CLIENT=clientside

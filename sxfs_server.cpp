@@ -8,6 +8,7 @@
 #include <sstream>
 #include "tcp_communication.h"
 #include "tcp_client.h"
+#include "tcp_server.h"
 #include <thread>
 #include <unistd.h>
 #include <map>
@@ -111,6 +112,20 @@ ping() {
 			}
 			ping_clnt->clntClose();
 			free(ping_clnt);
+		}
+	}
+}
+
+void s_fault_check(int server_port){
+	TcpServer *fault_check_serv = new TcpServer(server_port,MAXCLIENTS);
+	fault_check_serv->servListen();
+    socklen_t clilen;
+    int newsockfd;
+    while(1){
+		clilen = sizeof(fault_check_serv->cli_addr);
+		newsockfd = accept(fault_check_serv->sockfd, (struct sockaddr *) &(fault_check_serv->cli_addr), &clilen);
+		if (newsockfd < 0) {
+			cout << "server fault check tcp server could not accept connection" << endl;
 		}
 	}
 }

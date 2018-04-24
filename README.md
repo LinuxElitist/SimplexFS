@@ -9,8 +9,8 @@ make
 
 How to use:
 ````
-Server: Launch the RPC server with: ./serverside
-Client: Launch the client application with: ./clientside “local ip” “server ip” "client_udp_port"
+Server: Launch the RPC server with: ./serverside server_port
+Client: Launch the client application with: ./clientside “local ip” “server ip” "client_tcp_port" "client_crash_check_port" "server_crash_check_port"
 ````
 Assumptions: 
 ````

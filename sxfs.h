@@ -24,6 +24,7 @@ typedef char *IP;
 typedef char *client_file_list;
 
 void ping();
+void s_fault_check(int server_port);
 
 struct node {
 	IP ip;

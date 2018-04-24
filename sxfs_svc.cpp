@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <thread>
+#include <iostream>
+#include <string>
 
 #ifndef SIG_PF
 #define SIG_PF void(*)(int)
@@ -93,6 +95,13 @@ simple_xfs_1(struct svc_req *rqstp, register SVCXPRT *transp)
 int
 main (int argc, char **argv)
 {
+	if (argc < 2) {
+		std::cout << "Usage: ./serverside server_port\n";
+		exit(1);
+	}
+
+	int server_port = std::stoi(argv[1]);
+
 	register SVCXPRT *transp;
 
 	pmap_unset (SIMPLE_XFS, SIMPLE_VERSION);
@@ -118,6 +127,8 @@ main (int argc, char **argv)
 	}
 
 	std::thread ping_thread = std::thread(ping);
+	std::thread s_fault_check_thread = std::thread(s_fault_check, server_port);
+	s_fault_check_thread.detach();
 	ping_thread.detach();
 	svc_run ();
 	fprintf (stderr, "%s", "svc_run returned");

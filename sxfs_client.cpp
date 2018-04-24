@@ -378,8 +378,7 @@ void Client::checksum_comparison(string file_to_download, char *original_checksu
     }
     md5sum(name, size);
     std::string new_checksum(reinterpret_cast<char *>(checksum));
-    cout << "new check: " << new_checksum << endl;
-    if (strcmp(original_checksum, new_checksum.c_str()) == 0) {
+    if (strncmp(original_checksum, new_checksum.c_str(),MD5_DIGEST_LENGTH) == 0) {
         update_list();
     } else {
         cout << "Checksum mismatch, deleting the downloaded file. Please re-download " << endl;
@@ -417,7 +416,6 @@ void Client::download(char *filename) {
             tcp_clnt->clntWrite(ack.c_str(), ack.length());
             char *original_checksum;
             tcp_clnt->clntRead(&original_checksum);
-            cout << "original_checksum: " << original_checksum << endl;
             send_download_flag = "false";
             tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
             tcp_clnt->clntClose();

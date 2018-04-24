@@ -1,5 +1,5 @@
 const MAXIP = 21;
-const MAXCLIENTS = 3;
+const MAXCLIENTS = 4;
 const MAXFILENAME = 256;
 const MAXFILES = 30;
 const MAXFILELIST = 7680; /*256*30*/

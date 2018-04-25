@@ -126,11 +126,11 @@ main (int argc, char **argv)
 		exit(1);
 	}
 
-	std::thread ping_thread = std::thread(ping);
 	std::thread s_fault_check_thread = std::thread(s_fault_check, server_port);
+    std::thread ping_thread = std::thread(ping);
 
+    ping_thread.detach();
 	s_fault_check_thread.detach();
-	ping_thread.detach();
 	svc_run ();
 	fprintf (stderr, "%s", "svc_run returned");
 	exit (1);

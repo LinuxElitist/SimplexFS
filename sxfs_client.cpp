@@ -173,40 +173,21 @@ std::vector <string> Client::str_split(const std::string &str, char delimiter) {
 void Client::heartbeat() {
     //server tries to connect each client every 5 sec
     ping_serv->servListen();
-    int cli_num = -1;
-    bool crashed_flag = false;
-
+    socklen_t clilen;
+    int newsockfd;
     while(heartbeat_flag) {
-        cli_num = ping_serv->servAccept();
-        if(cli_num < 0){
+        clilen = sizeof(ping_serv->cli_addr);
+        newsockfd = accept(ping_serv->sockfd, (struct sockaddr *) &(ping_serv->cli_addr), &clilen);
+        if (newsockfd < 0) {
             cout << "Could not receive connection from server\n";
-            crashed_flag = true;
-//            if (clnt)
-//                clnt_destroy(clnt);
         }
-//        else{
-//            if(crashed_flag){
-//                //checking if clnt (RPC clnt) was destroyed, i.e. if server was initially in crashed state
-//                clnt = clnt_create(server_ip, SIMPLE_XFS, SIMPLE_VERSION, "udp");
-//                if (clnt == NULL) {
-//                    clnt_pcreateerror(server_ip);
-//                    exit(1);
-//                }
-//                update_list();
-//                crashed_flag = false;
-//            }
-//        }
     }
-
-
 }
 
 void Client::fault_check_func() {
     //ping server every 5 sec
-
     while (fault_check_flag) { // //TODO: if ping not recvd within 5 sec, => server down
         TcpClient *s_fault_check_clnt = new TcpClient(server_ip, server_port);
-        cout << "before opening";
         if (s_fault_check_clnt->clntOpen() < 0) {
             cout << "Could not connnect to server\n"; //destroy rpc clnt
         } else {

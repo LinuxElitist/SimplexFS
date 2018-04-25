@@ -92,8 +92,7 @@ int *remove_client_1_svc(IP arg1, int arg2, struct svc_req *rqstp) {
 }
 
 
-void
-ping() {
+void ping() {
 	//ping the clients every 5 sec
 	map<pair<string,int>, pair<string,int> >::iterator iter;
 	char temp_ip[MAXIP];
@@ -119,16 +118,15 @@ ping() {
 void s_fault_check(int server_port){
     map<pair<string,int>, pair<string,int> >::iterator iter;
     TcpServer *fault_check_serv = new TcpServer(server_port,MAXCLIENTS);
-	int cli_num;
-    char *msg;
+    socklen_t clilen = sizeof(fault_check_serv->cli_addr);
+    int newsockfd;
     fault_check_serv->servListen();
     while(1){
         for (iter = clientList.begin(); iter != clientList.end(); ++iter) {
-            cli_num = fault_check_serv->servAccept();
-            if (cli_num < 0) {
+            newsockfd = accept(fault_check_serv->sockfd, (struct sockaddr *) &(fault_check_serv->cli_addr), &clilen);
+            if (newsockfd < 0) {
                 cout << "server fault check tcp server could not accept connection" << endl;
-            } else {
-                //    fault_check_serv->servRead(cli_num, &msg);
+            }else {
                 cout << "accepted \n";
             }
         }

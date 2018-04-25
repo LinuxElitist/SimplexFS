@@ -127,7 +127,7 @@ void s_fault_check(int server_port){
             if (newsockfd < 0) {
                 cout << "server fault check tcp server could not accept connection" << endl;
             }else {
-                cout << "accepted \n";
+//                cout << "accepted \n";
             }
         }
 	}

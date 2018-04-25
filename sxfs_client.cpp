@@ -60,7 +60,7 @@ public:
     int server_port;
     int client_number;
     int num_active_clients;
-    int latency_sim;
+    int dest_latency;
     client_file_list self_file_list;
     node_list *peers_with_file;
     multimap<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
@@ -214,7 +214,7 @@ void Client::fault_check_func() {
 
 void Client::update_thread_func() {
     while(update_flag) {
-        sleep(60);
+        sleep(30);
         update_list();
     }
 }
@@ -369,7 +369,7 @@ string Client::finding_destinaton_peer(char *filename) {
         }
         lat_itr = min_element(latencies.begin(), latencies.end(), this->compare_second);
         string peer_details = lat_itr->first;
-        latency_sim = lat_itr->second;
+        dest_latency = lat_itr->second;
         return peer_details;
     }
 }
@@ -390,6 +390,8 @@ void Client::download_file_helper() {
         peer_file.close();
         peer_file_contents[size] = '\0';
 //        cout << "write: " << peer_file_contents << endl;
+        //emulating latency for file download
+        usleep(dest_latency*1000);
         if (tcp_serv->servWrite(client_number, peer_file_contents, size+1) != (size+1)) {
             cout << "Unable to transfer full file" << endl;
         }
@@ -561,7 +563,7 @@ int main(int argc, char *argv[]) {
                     cout << "ERROR:  invalid port number " << endl;
                     continue;
                 }
-                cout << "Load is: " << conn.get_load(dest_ip,dest_port);
+                cout << "Load is: " << conn.get_load(dest_ip,dest_port) << endl;
                 break;
             case 4:
                 conn.update_list();

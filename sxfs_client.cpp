@@ -65,7 +65,7 @@ public:
     node_list *peers_with_file;
     multimap<int, pair<char *, int>> peer_load; //(load,pair<ip,port>)
     TcpClient *tcp_clnt; //create self as tcp client and serv doe peer operations
-    TcpClient *s_fault_check_clnt;
+//    TcpClient *s_fault_check_clnt;
     TcpServer *tcp_serv;
     TcpServer *ping_serv;
     unsigned char checksum[MD5_DIGEST_LENGTH];
@@ -102,33 +102,33 @@ public:
         std::cout << ".....Completed client creation.....\n";
         tcp_serv = new TcpServer(self_port, MAXCLIENTS);
         ping_serv = new TcpServer(ping_port, 1);
-        s_fault_check_clnt = new TcpClient(server_ip,server_port);
 
         heartbeat_flag = true;
         heartbeat_thread = thread(&Client::heartbeat, this);
+        fault_check_flag = true;
+        fault_check_thread = thread(&Client::fault_check_func, this);
         update_flag = true;
         update_thread = thread(&Client::update_thread_func,this);
         tcp_flag = true;
         tcp_thread = thread(&Client::tcp_thread_func, this);
-        fault_check_flag = true;
-        fault_check_thread = thread(&Client::fault_check_func, this);
 
-        fault_check_thread.detach();
+
         tcp_thread.detach();
         update_thread.detach();
+        fault_check_thread.detach();
         heartbeat_thread.detach();
     }
 
     ~Client() {
         remove_client();
-        if (fault_check_thread.joinable()) {
-            fault_check_thread.join();
-        }
         if (tcp_thread.joinable()) {
             tcp_thread.join();
         }
         if (update_thread.joinable()) {
             update_thread.join();
+        }
+        if (fault_check_thread.joinable()) {
+            fault_check_thread.join();
         }
         if (heartbeat_thread.joinable()) {
             heartbeat_thread.join();
@@ -171,7 +171,7 @@ std::vector <string> Client::str_split(const std::string &str, char delimiter) {
 }
 
 void Client::heartbeat() {
-    //server pings each client every 5 sec
+    //server tries to connect each client every 5 sec
     ping_serv->servListen();
     socklen_t clilen;
     int newsockfd;
@@ -179,22 +179,21 @@ void Client::heartbeat() {
         clilen = sizeof(ping_serv->cli_addr);
         newsockfd = accept(ping_serv->sockfd, (struct sockaddr *) &(ping_serv->cli_addr), &clilen);
         if (newsockfd < 0) {
-            cout << "Did not receive ping from server\n";
+            cout << "Could not receive connection from server\n";
         }
     }
 }
 
 void Client::fault_check_func() {
     //ping server every 5 sec
-    while(fault_check_flag) { // //TODO: if ping not recvd within 5 sec, => server down
-        if(s_fault_check_clnt->clntOpen() < 0){
+    bool crashed_flag = false;
+    while (fault_check_flag) { // //TODO: if ping not recvd within 5 sec, => server down
+        TcpClient *s_fault_check_clnt = new TcpClient(server_ip, server_port);
+        if (s_fault_check_clnt->clntOpen() < 0) {
             cout << "Could not connnect to server\n"; //destroy rpc clnt
-            if (clnt)
-                clnt_destroy(clnt);
+            crashed_flag = true;
         } else {
-            s_fault_check_clnt->clntClose();
-            //checking if clnt (RPC clnt) was destroyed, i.e. if server was initially in crashed state
-            if(clnt == NULL){
+            if (crashed_flag) {
                 //recreate rpc clnt and connect to server and update list
                 clnt = clnt_create(server_ip, SIMPLE_XFS, SIMPLE_VERSION, "udp");
                 if (clnt == NULL) {
@@ -202,8 +201,11 @@ void Client::fault_check_func() {
                     exit(1);
                 }
                 update_list();
+                crashed_flag = false;
             }
         }
+        s_fault_check_clnt->clntClose();
+        free(s_fault_check_clnt);
         sleep(5);
     }
 }
@@ -220,7 +222,7 @@ void Client::update_thread_func() {
 void Client::tcp_thread_func() {
     while(tcp_flag){
         tcp_serv->servListen();
-        client_number = tcp_serv->servAccept();
+        client_number = tcp_serv->servAcceptAndSendLoad();
 //        cout << client_number << endl;
         num_active_clients = tcp_serv->getNumActiveClients();
         if(strcmp((tcp_serv->download_flag),"true")==0){
@@ -490,14 +492,14 @@ void Client::download(char *filename) {
 void Client::update_list() {
     populate_file_list();
     auto result_4 = update_list_1(self_ip, self_port, self_file_list, ping_port, clnt);
-    if (*result_4 == -1) {
+    if (result_4 == NULL) {
         clnt_perror(clnt, "call failed");
     }
 }
 
 void Client::remove_client(){
     auto result_5 = remove_client_1(self_ip, self_port, clnt);
-    if (*result_5 == -1) {
+    if (result_5 == NULL) {
         clnt_perror(clnt, "call failed");
     }
     tcp_flag = false;

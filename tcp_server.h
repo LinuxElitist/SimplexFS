@@ -10,6 +10,7 @@ public:
     ~TcpServer();
     int servListen();
     int servAccept();
+    int servAcceptAndSendLoad();
     int servRead(int cli_num, char **buffer);
     int servWrite(int cli_num, const char *msg, int msg_size);
     int servClose(int cli_num);

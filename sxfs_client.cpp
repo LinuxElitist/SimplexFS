@@ -402,7 +402,7 @@ void Client::download_file_helper() {
         //send md5 checksum value
         md5sum(file_to_download, size);
         std::string orig_checksum(reinterpret_cast<char*>(checksum));
-        cout << "serv check: " << orig_checksum << endl;
+//        cout << "serv check: " << orig_checksum << endl;
         if (tcp_serv->servWrite(client_number, orig_checksum.c_str(), MD5_DIGEST_LENGTH) != MD5_DIGEST_LENGTH) {
             cout << "Unable to transfer checksum" << endl;
         }
@@ -451,32 +451,57 @@ void Client::download(char *filename) {
         if ((strcmp(self_ip, dest_ip) != 0) || (self_port != dest_port)) {
             tcp_clnt = new TcpClient(dest_ip, dest_port);
             char *temp;
-            tcp_clnt->clntOpen();
-            tcp_clnt->clntRead(&temp);
-            string send_download_flag = "true";
-            tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
+            if(tcp_clnt->clntOpen()<0){
+                // peer crashed.... try to download from another peer
+                tcp_clnt->clntClose();
+                download(filename);
+            }
+            else {
+                tcp_clnt->clntRead(&temp);
+                string send_download_flag = "true";
+                if (tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length()) <
+                    send_download_flag.length()) {
+                    //failed to send filename to peer... peer crashed.... try to download from another peer
+                    tcp_clnt->clntClose();
+                    remove_client_1(dest_ip, dest_port, clnt);
+                    download(filename);
+                }
+                else if (tcp_clnt->clntWrite(file_to_download.c_str(), file_to_download.length()) !=
+                    file_to_download.length()) {
+                    //failed to send filename to peer... peer crashed.... try to download from another peer
+                    tcp_clnt->clntClose();
+                    remove_client_1(dest_ip, dest_port, clnt);
+                    download(filename);
+                }
+                else {
+                    tcp_clnt->clntRead(&clnt_file_contents);
 
-            tcp_clnt->clntWrite(file_to_download.c_str(), file_to_download.length());
-            tcp_clnt->clntRead(&clnt_file_contents);
+                    string ack = "acknowledged";
+                    if (tcp_clnt->clntWrite(ack.c_str(), ack.length()) != ack.length()) {
+                        tcp_clnt->clntClose();
+                        remove_client_1(dest_ip, dest_port, clnt);
+                        download(filename);
+                    }
+                    else {
+                        char *original_checksum;
+                        tcp_clnt->clntRead(&original_checksum);
+                        send_download_flag = "false";
+                        tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
+                        tcp_clnt->clntClose();
+                        // create a file and write these contents
 
-            string ack = "acknowledged";
-            tcp_clnt->clntWrite(ack.c_str(), ack.length());
-            char *original_checksum;
-            tcp_clnt->clntRead(&original_checksum);
-            send_download_flag = "false";
-            tcp_clnt->clntWrite(send_download_flag.c_str(), send_download_flag.length());
-            tcp_clnt->clntClose();
-            // create a file and write these contents
-
-            ofstream client_file(file_to_download.c_str(), std::ofstream::out);
-            if (client_file.is_open()) { //if able to open the file
-                client_file << clnt_file_contents;
+                        ofstream client_file(file_to_download.c_str(), std::ofstream::out);
+                        if (client_file.is_open()) { //if able to open the file
+                            client_file << clnt_file_contents;
 //                cout << "content received: " << clnt_file_contents << endl;
-                client_file.close();
-                //update list if checksum returned success
-                checksum_comparison(file_to_download, original_checksum);
-            } else {
-                cout << "Unable to create " << filename << endl;
+                            client_file.close();
+                            //update list if checksum returned success
+                            checksum_comparison(file_to_download, original_checksum);
+                        } else {
+                            cout << "Unable to create " << filename << endl;
+                        }
+                    }
+                }
             }
         } else {
             ifstream fptr(file_to_download.c_str(), std::ifstream::in);

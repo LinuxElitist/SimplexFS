@@ -186,12 +186,14 @@ void Client::heartbeat() {
 
 void Client::fault_check_func() {
     //ping server every 5 sec
+    bool crashed_flag = false;
     while (fault_check_flag) { // //TODO: if ping not recvd within 5 sec, => server down
         TcpClient *s_fault_check_clnt = new TcpClient(server_ip, server_port);
         if (s_fault_check_clnt->clntOpen() < 0) {
             cout << "Could not connnect to server\n"; //destroy rpc clnt
+            crashed_flag = true;
         } else {
-            if (clnt == NULL) {
+            if (crashed_flag) {
                 //recreate rpc clnt and connect to server and update list
                 clnt = clnt_create(server_ip, SIMPLE_XFS, SIMPLE_VERSION, "udp");
                 if (clnt == NULL) {
@@ -199,11 +201,12 @@ void Client::fault_check_func() {
                     exit(1);
                 }
                 update_list();
+                crashed_flag = false;
             }
         }
         s_fault_check_clnt->clntClose();
         free(s_fault_check_clnt);
-        sleep(7);
+        sleep(5);
     }
 }
 
@@ -489,14 +492,14 @@ void Client::download(char *filename) {
 void Client::update_list() {
     populate_file_list();
     auto result_4 = update_list_1(self_ip, self_port, self_file_list, ping_port, clnt);
-    if (*result_4 == -1) {
+    if (result_4 == NULL) {
         clnt_perror(clnt, "call failed");
     }
 }
 
 void Client::remove_client(){
     auto result_5 = remove_client_1(self_ip, self_port, clnt);
-    if (*result_5 == -1) {
+    if (result_5 == NULL) {
         clnt_perror(clnt, "call failed");
     }
     tcp_flag = false;

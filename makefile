@@ -15,9 +15,9 @@ SERVER=serverside
 
 all: $(CLIENT) $(SERVER)
 
-rpc:
-	rpcgen -N $(RPCGEN_FILE)
-	rename 's/\.c/.cpp/'  sxfs_clnt.c sxfs_xdr.c
+#rpc:
+#	rpcgen -N $(RPCGEN_FILE)
+#	rename 's/\.c/.cpp/'  sxfs_clnt.c sxfs_xdr.c
 
 $(CLIENT): $(CLI_SRC)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)

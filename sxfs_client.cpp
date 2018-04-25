@@ -552,7 +552,7 @@ int main(int argc, char *argv[]) {
                 char temp_port[4];
                 std::cout << "Please enter hostname:\n";
                 std::cin >> dest_ip;
-                std::cout << "Please enter hostname:\n";
+                std::cout << "Please enter hostport:\n";
                 std::cin >> temp_port;
                 try {
                     dest_port = stoi(temp_port);
@@ -561,7 +561,7 @@ int main(int argc, char *argv[]) {
                     cout << "ERROR:  invalid port number " << endl;
                     continue;
                 }
-                conn.get_load(dest_ip,dest_port);
+                cout << "Load is: " << conn.get_load(dest_ip,dest_port);
                 break;
             case 4:
                 conn.update_list();
